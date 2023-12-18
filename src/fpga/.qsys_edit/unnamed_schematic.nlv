@@ -1,0 +1,20 @@
+# # File gsaved with Nlview version 6.3.8  2013-12-19 bk=1.2992 VDI=34 GEI=35
+# 
+preplace inst unsaved.master_0.p2b_adapter -pg 1
+preplace inst unsaved.master_0.p2b -pg 1
+preplace inst unsaved.master_0.clk_rst -pg 1
+preplace inst unsaved.master_0.clk_src -pg 1
+preplace inst unsaved.master_0.transacto -pg 1
+preplace inst unsaved.master_0.fifo -pg 1
+preplace inst unsaved.master_0.timing_adt -pg 1
+preplace inst unsaved.master_0.jtag_phy_embedded_in_jtag_master -pg 1
+preplace inst unsaved.master_0.b2p -pg 1
+preplace inst unsaved -pg 1 -lvl 1 -y 40 -regy -20
+preplace inst unsaved.master_0.b2p_adapter -pg 1
+preplace inst unsaved.master_0 -pg 1 -lvl 1 -y 50
+preplace netloc EXPORT<net_container>unsaved</net_container>(MASTER)unsaved.master,(MASTER)master_0.master) 1 1 1 NJ
+preplace netloc EXPORT<net_container>unsaved</net_container>(MASTER)unsaved.master_reset,(MASTER)master_0.master_reset) 1 1 1 NJ
+preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)master_0.clk_reset,(SLAVE)unsaved.clk_reset) 1 0 1 NJ
+preplace netloc EXPORT<net_container>unsaved</net_container>(SLAVE)master_0.clk,(SLAVE)unsaved.clk) 1 0 1 NJ
+levelinfo -pg 1 0 70 430
+levelinfo -hier unsaved 80 160 320
