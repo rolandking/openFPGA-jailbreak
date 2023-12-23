@@ -1,3 +1,4 @@
+set_global_assignment -name SYSTEMVERILOG_FILE ../../../svh/assert.svh
 set_global_assignment -name SYSTEMVERILOG_FILE core/core_top.sv
 set_global_assignment -name QIP_FILE core/mf_pllbase.qip
 set_global_assignment -name SIP_FILE core/mf_pllbase.sip
