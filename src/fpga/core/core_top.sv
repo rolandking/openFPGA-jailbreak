@@ -476,59 +476,6 @@ module core_top (
 
     ////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-    //
-    // audio i2s silence generator
-    // see other examples for actual audio generation
-    //
-
-    assign audio_mclk = audgen_mclk;
-    assign audio_dac = audgen_dac;
-    assign audio_lrck = audgen_lrck;
-
-    // generate MCLK = 12.288mhz with fractional accumulator
-    reg         [21:0]  audgen_accum = 21'd0;
-    reg                 audgen_mclk;
-    parameter logic [20:0]  CYCLE_48KHZ = 19'd122880 * 2'd2;
-
-    always @(posedge clk_74a) begin
-        audgen_accum <= audgen_accum + CYCLE_48KHZ;
-        if(audgen_accum >= 21'd742500) begin
-            audgen_mclk <= ~audgen_mclk;
-            audgen_accum <= audgen_accum - 21'd742500 + CYCLE_48KHZ;
-        end
-    end
-
-    // generate SCLK = 3.072mhz by dividing MCLK by 4
-    reg [1:0]   aud_mclk_divider;
-    wire        audgen_sclk = aud_mclk_divider[1] /* synthesis keep*/;
-    reg         audgen_lrck_1;
-
-    always @(posedge audgen_mclk) begin
-        aud_mclk_divider <= aud_mclk_divider + 1'b1;
-    end
-
-    // shift out audio data as I2S
-    // 32 total bits per channel, but only 16 active bits at the start and then 16 dummy bits
-    //
-    reg     [4:0]   audgen_lrck_cnt;
-    reg             audgen_lrck;
-    reg             audgen_dac;
-
-    always @(negedge audgen_sclk) begin
-        audgen_dac <= 1'b0;
-        // 48khz * 64
-        audgen_lrck_cnt <= audgen_lrck_cnt + 1'b1;
-        if(audgen_lrck_cnt == 31) begin
-            // switch channels
-            audgen_lrck <= ~audgen_lrck;
-
-        end
-    end
-
-    ////////////////////////////////////////////
-
     /*
         core runs at 48.660480, use this for the display
         dot clock. The display code runs on a /8 enable
@@ -544,6 +491,7 @@ module core_top (
     wire    pll_core_locked;
     wire    clk_48_660mhz;
     wire    clk_48_660mhz_90degrees;
+    wire    clk_12_288_mhz;
 
     mf_pllbase mp1 (
         .refclk         ( clk_74a ),
@@ -551,6 +499,7 @@ module core_top (
 
         .outclk_0       ( clk_48_660mhz ),
         .outclk_1       ( clk_48_660mhz_90degrees ),
+        .outclk_2       ( clk_12_288_mhz ),
 
         .locked         ( pll_core_locked )
     );
@@ -622,8 +571,8 @@ module core_top (
 
     localparam dip_switch_t dip_switch_default = '{
         upright_controls:controls_single,
-        flip_screen:1'b1,
-        attract_mode_sound:1'b0,
+        flip_screen:1'b0,
+        attract_mode_sound:1'b1,
         unused:1'b0,
         difficulty:difficulty_normal,
         bonus:bonus_30k_70k,
@@ -653,7 +602,7 @@ module core_top (
     logic        hs_write_enable;
     logic        hs_access_write;
 
-    logic [15:0] sound;
+    logic signed [15:0] sound;
 
     logic        pause;
 
@@ -677,7 +626,7 @@ module core_top (
         p2_buttons_n    = 2'b11;
 
         // we always run in 'underclock' mode
-        underclock      = 1'b1;
+        underclock      = 1'b0;
 
         pause           = 1'b0;
 
@@ -710,7 +659,7 @@ module core_top (
 
     typedef struct packed {
         logic [24:0] address;
-        logic [8:0]  data;
+        logic [7:0]  data;
     } rom_data_t;
 
     rom_data_t rom_data_in, rom_data_out;
@@ -759,7 +708,7 @@ module core_top (
         .h_center           (4'h0),
         .v_center           (4'h0),
 
-        .sound              (),
+        .sound,
         .video_csync        (),     // no need for composite sync
         .video_hsync,
         .video_vsync,
@@ -813,5 +762,41 @@ module core_top (
         video_skip = video_de && !ce_pix;
         video_rgb  = video_de ? {video_r, 4'b0, video_g, 4'b0, video_b, 4'b0} : 24'b0;
      end
+
+    logic [15:0] sound_clk_74a;
+    // bring sound back into the I2S clock domain
+    cdc_buffer(
+    .write_clk   (clk_48_660mhz),
+    .write_data  (sound),
+    .write_en    (1'b1),
+
+    .read_clk    (clk_12_288_mhz),
+    .read_data   (sound_clk_74a)
+    );
+
+    // every 4 cycles of clk_12_288_mhz we shift
+    // every 32 cycles of that we reload and switch L/R
+
+    logic [6:0] counter;
+
+    logic [31:0] shifter;
+
+    always @(posedge clk_12_288_mhz) begin
+        counter <= counter + 7'd1;
+
+        if( counter[1:0] == 2'b00) begin
+            shifter <= {shifter[30:0], 1'b0};
+        end
+
+        if(counter == '0) begin
+            shifter    <= {1'b0, sound_clk_74a, 15'b0};
+            audio_lrck <= ~audio_lrck;
+        end
+    end
+
+    always_comb begin
+        audio_mclk = clk_12_288_mhz;
+        audio_dac  = shifter[31];
+    end
 
 endmodule
