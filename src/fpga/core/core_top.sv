@@ -626,7 +626,7 @@ module core_top (
         p2_buttons_n    = 2'b11;
 
         // we always run in 'underclock' mode
-        underclock      = 1'b0;
+        underclock      = 1'b1;
 
         pause           = 1'b0;
 
