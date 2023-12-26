@@ -513,7 +513,9 @@ module core_top (
 
         .cont1_key,
 
-        .dip_switches
+        .dip_switches,
+
+        .pause             (osnotify_inmenu)
     );
 
 

@@ -30,7 +30,9 @@ module jailbreak_core(
 
     input  key_t        cont1_key,
 
-    input  dip_switch_t dip_switches
+    input  dip_switch_t dip_switches,
+
+    input  wire         pause
 );
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -89,8 +91,6 @@ module jailbreak_core(
 
     logic signed [15:0] sound;
 
-    logic        pause;
-
     logic        video_hsync;
     logic        video_vsync;
     logic        video_vblank;
@@ -120,8 +120,6 @@ module jailbreak_core(
         // we always run in 'underclock' mode
         underclock      = 1'b1;
 
-        pause           = 1'b0;
-
         hs_address      = '0;
         hs_data_in      = '0;
         hs_write_enable = '0;
@@ -133,7 +131,7 @@ module jailbreak_core(
     // so mask out 0x0003FFFF
 
     logic [31:0] mem_address;
-    logic [7:0]  mem_data;
+    logic [7:0]  mem_wr_data;
     logic        mem_wr;
 
     bridge_to_bytes#(
@@ -143,10 +141,16 @@ module jailbreak_core(
         .bridge_addr      (bridge_addr),
         .bridge_wr_data   (bridge_wr_data),
         .bridge_wr        (bridge_wr),
+        .bridge_rd_data   (),
+        .bridge_rd        (1'b0),
 
         .mem_address,
-        .mem_data,
-        .mem_wr
+        .mem_wr_data,
+        .mem_wr,
+        .mem_rd_data      ('x),
+        .mem_rd           (),
+
+        .selected         ()
     );
 
     typedef struct packed {
@@ -159,7 +163,7 @@ module jailbreak_core(
 
     always_comb begin
         rom_data_in.address = mem_address[24:0];
-        rom_data_in.data    = mem_data;
+        rom_data_in.data    = mem_wr_data;
     end
 
     cdc_fifo#(
