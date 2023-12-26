@@ -1,0 +1,15 @@
+{
+	"instance": {
+		"magic": "APF_VER_1",
+		"variant_select": {
+			"id": 777,
+			"select": false
+		},
+		"data_slots": [
+			{
+				"id": 1,
+				"filename": "jailbrek.rom"
+			}
+		]
+	}
+}

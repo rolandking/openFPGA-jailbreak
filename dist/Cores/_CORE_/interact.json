@@ -1,0 +1,199 @@
+{
+    "interact": {
+        "magic": "APF_VER_1",
+        "variables": [
+            {
+                "name": "Credits",
+                "id": 20,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0x00100000",
+                "mask" : "0xfffffff0",
+                "defaultval" : "0x0",
+                "options": [
+                    {
+                        "value": "0x0",
+                        "name": "1Coin/1Credit"
+                    },
+                    {
+                        "value": "0x1",
+                        "name": "1Coin/2Credits"
+                    },
+                    {
+                        "value": "0x2",
+                        "name": "1Coin/3Credits"
+                    },
+                    {
+                        "value": "0x3",
+                        "name": "1Coin/4Credits"
+                    },
+                    {
+                        "value": "0x4",
+                        "name": "1Coin/5Credits"
+                    },
+                    {
+                        "value": "0x5",
+                        "name": "1Coin/6Credits"
+                    },
+                    {
+                        "value": "0x6",
+                        "name": "1Coin/7Credits"
+                    },
+                    {
+                        "value": "0x7",
+                        "name": "2Coins/1Credit"
+                    },
+                    {
+                        "value": "0x8",
+                        "name": "2Coins/3Credits"
+                    },
+                    {
+                        "value": "0x9",
+                        "name": "2Coins/5Credits"
+                    },
+                    {
+                        "value": "0xa",
+                        "name": "3Coin/1Credit"
+                    },
+                    {
+                        "value": "0xb",
+                        "name": "3Coin/3Credits"
+                    },
+                    {
+                        "value": "0xc",
+                        "name": "3Coins/4Credits"
+                    },
+                    {
+                        "value": "0xd",
+                        "name": "4Coin/1Credit"
+                    },
+                    {
+                        "value": "0xe",
+                        "name": "4Coins/3Credits"
+                    },
+                    {
+                        "value": "0xf",
+                        "name": "Free Play"
+                    }
+                ]
+            },
+            {
+                "name": "Lives",
+                "id": 21,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0x00100000",
+                "mask" : "0xfffffcff",
+                "defaultval" : "0x02",
+                "options": [
+                    {
+                        "value": "0x0",
+                        "name": "1 life"
+                    },
+                    {
+                        "value": "0x100",
+                        "name": "2 lives"
+                    },
+                    {
+                        "value": "0x200",
+                        "name": "3 lives"
+                    },
+                    {
+                        "value": "0x300",
+                        "name": "5 lives"
+                    }
+                ]
+            },
+            {
+                "name": "Bonus",
+                "id": 22,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0x00100000",
+                "mask" : "0xfffff7ff",
+                "defaultval" : "0x0",
+                "options": [
+                    {
+                        "value": "0x000",
+                        "name": "30k / 70k"
+                    },
+                    {
+                        "value": "0x800",
+                        "name": "40k / 80k"
+                    }
+                ]
+            },
+            {
+                "name": "Difficulty",
+                "id": 23,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0x00100000",
+                "mask" : "0xffffcfff",
+                "defaultval" : "0x1",
+                "options": [
+                    {
+                        "value": "0x0000",
+                        "name": "Easy"
+                    },
+                    {
+                        "value": "0x1000",
+                        "name": "Normal"
+                    },
+                    {
+                        "value": "0x2000",
+                        "name": "Hard"
+                    },
+                    {
+                        "value": "0x3000",
+                        "name": "Hardest"
+                    }
+                ]
+            },
+            {
+                "name": "Attract Mode Sound",
+                "id": 24,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0x00100000",
+                "mask" : "0xffff7fff",
+                "defaultval" : "0x0",
+                "options": [
+                    {
+                        "value": "0x0000",
+                        "name": "Off"
+                    },
+                    {
+                        "value": "0x8000",
+                        "name": "On"
+                    }
+                ]
+            },
+            {
+                "name": "Controls",
+                "id": 25,
+                "type": "list",
+                "enabled": true,
+                "persist": true,
+                "address": "0x00100000",
+                "mask" : "0xfffdffff",
+                "defaultval" : "0x0",
+                "options": [
+                    {
+                        "value": "0x00000",
+                        "name": "Single"
+                    },
+                    {
+                        "value": "0x20000",
+                        "name": "Dual"
+                    }
+                ]
+            }
+        ]
+    }
+}

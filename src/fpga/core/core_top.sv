@@ -5,6 +5,8 @@
 //
 
 `default_nettype none
+import pocket_pkg::*;
+import jailbreak::*;
 
 module core_top (
 
@@ -307,6 +309,7 @@ module core_top (
     assign aux_scl = 1'bZ;
     assign vpll_feed = 1'bZ;
 
+    dip_switch_t dip_switches = dip_switch_default;
 
     // for bridge write data, we just broadcast it to all bus devices
     // for bridge read data, we have to mux it
@@ -317,6 +320,16 @@ module core_top (
         if(bridge_addr[31 -: 5] == 5'b11111) begin
             bridge_rd_data = cmd_bridge_rd_data;
         end
+
+        if(bridge_addr == 32'h00100000) begin
+            bridge_rd_data = 32'(dip_switches);
+        end
+    end
+
+    always_ff @(posedge clk_74a) begin
+        if(bridge_wr && (bridge_addr == 32'h00100000)) begin
+            dip_switches <= dip_switch_t'(bridge_wr_data);
+        end
     end
 
     //
@@ -325,6 +338,7 @@ module core_top (
     // driven by host commands, can be used as core-wide reset
     wire            reset_n;
     wire    [31:0]  cmd_bridge_rd_data;
+    wire           pll_core_locked;
 
     // bridge host commands
     // synchronous to clk_74a
@@ -473,330 +487,34 @@ module core_top (
     );
 
 
+    jailbreak_core jb_core (
 
-    ////////////////////////////////////////////////////////////////////////////////////////
+        .clk_74a,
+        .reset_n,
 
-    /*
-        core runs at 48.660480, use this for the display
-        dot clock. The display code runs on a /8 enable
-        and is 256x244 displayed, 384x264 total. For 60Hz
-        that is 384 * 264 * 60 = 6,082,560
-        x8 for the full clock is 48,660,480
+        .pll_core_locked,
 
-        the clock on MiSTer runs at 49.152MHz which would
-        generate 60.60 Hz but has an underclock option which
-        reconfigs down to 48.660MHz. Use only that option
-    */
+        .video_rgb_clock,
+        .video_rgb_clock_90,
 
-    wire    pll_core_locked;
-    wire    clk_48_660mhz;
-    wire    clk_48_660mhz_90degrees;
-    wire    clk_12_288_mhz;
+        .bridge_addr,
+        .bridge_wr_data,
+        .bridge_wr,
 
-    mf_pllbase mp1 (
-        .refclk         ( clk_74a ),
-        .rst            ( 0 ),
+        .video_vs,
+        .video_hs,
+        .video_de,
+        .video_skip,
+        .video_rgb,
 
-        .outclk_0       ( clk_48_660mhz ),
-        .outclk_1       ( clk_48_660mhz_90degrees ),
-        .outclk_2       ( clk_12_288_mhz ),
+        .audio_mclk,
+        .audio_lrck,
+        .audio_dac,
 
-        .locked         ( pll_core_locked )
+        .cont1_key,
+
+        .dip_switches
     );
 
-
-    assign video_rgb_clock    = clk_48_660mhz;
-    assign video_rgb_clock_90 = clk_48_660mhz_90degrees;
-
-    typedef enum logic[3:0]{
-        credits_1c_1cr = 4'd0,
-        credits_1c_2cr = 4'd1,
-        credits_1c_3cr = 4'd2,
-        credits_1c_4cr = 4'd3,
-        credits_1c_5cr = 4'd4,
-        credits_1c_6cr = 4'd5,
-        credits_1c_7cr = 4'd6,
-        credits_2c_1cr = 4'd7,
-        credits_2c_3cr = 4'd8,
-        credits_2c_5cr = 4'd9,
-        credits_3c_1cr = 4'd10,
-        credits_3c_2cr = 4'd11,
-        credits_3c_4cr = 4'd12,
-        credits_4c_1cr = 4'd13,
-        credits_4c_3cr = 4'd14,
-        credits_free   = 4'd15
-    } credits_e;
-
-    typedef enum logic [1:0] {
-        lives_1 = 2'd0,
-        lives_2 = 2'd1,
-        lives_3 = 2'd2,
-        lives_5 = 2'd3
-    } lives_e;
-
-    typedef enum logic {
-        cabinet_cocktail = 1'b0,
-        cabinet_upright  = 1'b1
-    } cabinet_e;
-
-    typedef enum logic {
-        bonus_30k_70k = 1'b0,
-        bonus_40k_80k = 1'b1
-    } bonus_e;
-
-    typedef enum logic[1:0] {
-        difficulty_easy    = 2'd0,
-        difficulty_normal  = 2'd1,
-        difficulty_hard    = 2'd2,
-        difficulty_hardest = 2'd3
-    } difficulty_e;
-
-    typedef enum logic {
-        controls_single = 1'b0,
-        controls_dual   = 1'b1
-    } upright_controls_e;
-
-    typedef struct packed {
-        upright_controls_e upright_controls;            // 1
-        logic              flip_screen;                 // 1
-        logic              attract_mode_sound;          // 1
-        logic              unused;                      // 1
-        difficulty_e       difficulty;                  // 2
-        bonus_e            bonus;                       // 1
-        cabinet_e          cabinet;                     // 1
-        lives_e            lives;                       // 2
-        credits_e          creditsB;                    // 4
-        credits_e          creditsA;                    // 4
-    } dip_switch_t;
-
-    localparam dip_switch_t dip_switch_default = '{
-        upright_controls:controls_single,
-        flip_screen:1'b0,
-        attract_mode_sound:1'b1,
-        unused:1'b0,
-        difficulty:difficulty_normal,
-        bonus:bonus_30k_70k,
-        cabinet:cabinet_upright,
-        lives:lives_3,
-        creditsB:credits_1c_1cr,
-        creditsA:credits_1c_1cr
-    };
-
-    /*
-    *  hook up the Jailbreak core from MiSTer here
-    */
-
-    logic [1:0]  coin_n;
-    logic        btn_service_n;
-    logic [1:0]  btn_start_n;
-    logic [3:0]  p1_joystick_n;
-    logic [3:0]  p2_joystick_n;
-    logic [1:0]  p1_buttons_n;
-    logic [1:0]  p2_buttons_n;
-    logic [19:0] dipsw_n;
-    logic        underclock;
-
-    logic [11:0] hs_address;
-    logic [7:0]  hs_data_in;
-    logic [7:0]  hs_data_out;
-    logic        hs_write_enable;
-    logic        hs_access_write;
-
-    logic signed [15:0] sound;
-
-    logic        pause;
-
-    logic        video_hsync;
-    logic        video_vsync;
-    logic        video_vblank;
-    logic        video_hblank;
-    logic        ce_pix;
-    logic [3:0]  video_r;
-    logic [3:0]  video_g;
-    logic [3:0]  video_b;
-
-    always_comb begin
-        // temp tieoff
-        coin_n          = 2'b11;
-        btn_service_n   = 1'b1;
-        btn_start_n     = 2'b11;
-        p1_joystick_n   = 4'b1111;
-        p2_joystick_n   = 4'b1111;
-        p1_buttons_n    = 2'b11;
-        p2_buttons_n    = 2'b11;
-
-        // we always run in 'underclock' mode
-        underclock      = 1'b1;
-
-        pause           = 1'b0;
-
-        hs_address      = '0;
-        hs_data_in      = '0;
-        hs_write_enable = '0;
-        hs_access_write = '0;
-
-    end
-
-    // bridge ROM writes. ROM here goes from 0x00000000 to 0x0002423F
-    // so mask out 0x0003FFFF
-
-    logic [31:0] mem_address;
-    logic [7:0]  mem_data;
-    logic        mem_wr;
-
-    bridge_to_bytes#(
-        .valid_bits       (32'h0003ffff)
-    ) b2b (
-        .clk              (clk_74a),
-        .bridge_addr      (bridge_addr),
-        .bridge_wr_data   (bridge_wr_data),
-        .bridge_wr        (bridge_wr),
-
-        .mem_address,
-        .mem_data,
-        .mem_wr
-    );
-
-    typedef struct packed {
-        logic [24:0] address;
-        logic [7:0]  data;
-    } rom_data_t;
-
-    rom_data_t rom_data_in, rom_data_out;
-    logic rom_data_valid;
-
-    always_comb begin
-        rom_data_in.address = mem_address[24:0];
-        rom_data_in.data    = mem_data;
-    end
-
-    cdc_fifo#(
-        .address_width(8),
-        .data_width($bits(rom_data_t))
-    ) rom_data_fifo(
-        .write_clk       (clk_74a),
-        .write_data      (rom_data_in),
-        .write_valid     (mem_wr),
-        .write_ready     (),
-
-        .read_clk        (clk_48_660mhz),
-        .read_data       (rom_data_out),
-        .read_valid      (rom_data_valid),
-        .read_ack        ('1)
-    );
-
-    Jailbreak jb_core(
-        // reset pin is really ~reset
-        .reset              (reset_n),
-
-        .clk_49m            (clk_48_660mhz),  //Actual frequency: 48,660,480
-        .coin               (coin_n),
-        .btn_service        (btn_service_n),
-        .btn_start          (btn_start_n),
-        .p1_joystick        (p1_joystick_n),
-        .p2_joystick        (p2_joystick_n),
-        .p1_buttons         (p1_buttons_n),
-        .p2_buttons         (p2_buttons_n),
-
-        //.dipsw              ({3'b0,~dip_switch_default}),
-        .dipsw              ({2'd0,~dip_switch_default}),
-        // we alway run with the 'underclocked' frequence
-        .underclock,
-
-        //Screen centering (alters HSync and VSync timing of the Konami 005849 to reposition the video output)
-        // fix at zero for known VSYNC/HSYNC timing and because we're not on a CRT
-        .h_center           (4'h0),
-        .v_center           (4'h0),
-
-        .sound,
-        .video_csync        (),     // no need for composite sync
-        .video_hsync,
-        .video_vsync,
-        .video_vblank,
-        .video_hblank,
-        .ce_pix,
-        .video_r,
-        .video_g,
-        .video_b,
-
-        .ioctl_addr         (rom_data_out.address),
-        .ioctl_data         (rom_data_out.data),
-        .ioctl_wr           (rom_data_valid),
-
-        .pause,
-
-        .hs_address,
-        .hs_data_in,
-        .hs_data_out,
-        .hs_write_enable,
-        .hs_access_write
-    );
-
-    /*
-     *   use the video_hsync and video_vsync signals to drive video_hs and video_vs
-     *   on the falling edge, they are active low
-     *   use video_hblank and video_vblank to drive video_de, combo them, they are
-     *   active high
-     *   use RGB directly (combo)
-     *   use ce_pix == 6MHz enable to drive enable the video_skip
-     */
-
-     edge_detect#(
-        .positive(1'b0)
-     ) video_hsync_fall (
-        .clk    (video_rgb_clock ),
-        .in     (video_hsync),
-        .out    (video_hs)
-     );
-
-     edge_detect#(
-        .positive(1'b0)
-     ) video_vsync_fall (
-        .clk    (video_rgb_clock ),
-        .in     (video_vsync),
-        .out    (video_vs)
-     );
-
-     always_comb begin
-        video_de   = ~(video_vblank || video_hblank);
-        video_skip = video_de && !ce_pix;
-        video_rgb  = video_de ? {video_r, 4'b0, video_g, 4'b0, video_b, 4'b0} : 24'b0;
-     end
-
-    logic [15:0] sound_clk_74a;
-    // bring sound back into the I2S clock domain
-    cdc_buffer(
-    .write_clk   (clk_48_660mhz),
-    .write_data  (sound),
-    .write_en    (1'b1),
-
-    .read_clk    (clk_12_288_mhz),
-    .read_data   (sound_clk_74a)
-    );
-
-    // every 4 cycles of clk_12_288_mhz we shift
-    // every 32 cycles of that we reload and switch L/R
-
-    logic [6:0] counter;
-
-    logic [31:0] shifter;
-
-    always @(posedge clk_12_288_mhz) begin
-        counter <= counter + 7'd1;
-
-        if( counter[1:0] == 2'b00) begin
-            shifter <= {shifter[30:0], 1'b0};
-        end
-
-        if(counter == '0) begin
-            shifter    <= {1'b0, sound_clk_74a, 15'b0};
-            audio_lrck <= ~audio_lrck;
-        end
-    end
-
-    always_comb begin
-        audio_mclk = clk_12_288_mhz;
-        audio_dac  = shifter[31];
-    end
 
 endmodule
