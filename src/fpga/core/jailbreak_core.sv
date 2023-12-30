@@ -16,6 +16,12 @@ module jailbreak_core(
     input  wire[31:0]  bridge_addr,
     input  wire[31:0]  bridge_wr_data,
     input  wire        bridge_wr,
+    input  wire[31:0]  bridge_rd_data,
+    input  wire        bridge_rd,
+
+    output logic[9:0]  datatable_addr,
+    output logic[31:0] datatable_data,
+    output logic       datatable_wren,
 
     output logic       video_vs,
     output logic       video_hs,
@@ -32,7 +38,11 @@ module jailbreak_core(
 
     input  dip_switch_t dip_switches,
 
-    input  wire         pause
+    input  wire         pause,
+
+    output logic[31:0]  hs_rd_data,
+    output logic        hs_selected
+
 );
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -120,11 +130,6 @@ module jailbreak_core(
         // we always run in 'underclock' mode
         underclock      = 1'b1;
 
-        hs_address      = '0;
-        hs_data_in      = '0;
-        hs_write_enable = '0;
-        hs_access_write = '0;
-
     end
 
     // bridge ROM writes. ROM here goes from 0x00000000 to 0x0002423F
@@ -135,7 +140,11 @@ module jailbreak_core(
     logic        mem_wr;
 
     bridge_to_bytes#(
-        .valid_bits       (32'h0003ffff)
+        // 0x00000000 - 0x0003fffff
+        .fixed_bits       (32'h00000000),
+        .fixed_mask       (32'hfffc0000),
+        .read_cycles      (2),
+        .write_cycles     (2)
     ) b2b (
         .clk              (clk_74a),
         .bridge_addr      (bridge_addr),
@@ -143,6 +152,7 @@ module jailbreak_core(
         .bridge_wr        (bridge_wr),
         .bridge_rd_data   (),
         .bridge_rd        (1'b0),
+        .bridge_rd_ready  (),
 
         .mem_address,
         .mem_wr_data,
@@ -180,6 +190,31 @@ module jailbreak_core(
         .read_valid      (rom_data_valid),
         .read_ack        ('1)
     );
+
+    jailbreak_hs (
+        .clk_74a,
+
+        .reset_n,
+
+        .bridge_addr,
+        .bridge_wr_data,
+        .bridge_wr,
+        .bridge_rd_data   (hs_rd_data),
+        .bridge_rd,
+        .selected         (hs_selected),
+
+        .datatable_addr,
+        .datatable_wren,
+        .datatable_data,
+
+        .jb_core_clk      (video_rgb_clock),
+        .hs_address,
+        .hs_access_write,
+        .hs_write_enable,
+        .hs_data_in,
+        .hs_data_out
+    );
+
 
     Jailbreak jb_core(
         // reset pin is really ~reset

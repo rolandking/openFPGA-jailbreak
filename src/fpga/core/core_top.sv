@@ -311,6 +311,10 @@ module core_top (
 
     dip_switch_t dip_switches = dip_switch_default;
 
+    // read data from the high score system
+    logic [31:0] hs_rd_data;
+    logic        hs_selected;
+
     // for bridge write data, we just broadcast it to all bus devices
     // for bridge read data, we have to mux it
     // add your own devices here
@@ -323,6 +327,10 @@ module core_top (
 
         if(bridge_addr == 32'h00100000) begin
             bridge_rd_data = 32'(dip_switches);
+        end
+
+        if(hs_selected) begin
+            bridge_rd_data = hs_rd_data;
         end
     end
 
@@ -338,7 +346,7 @@ module core_top (
     // driven by host commands, can be used as core-wide reset
     wire            reset_n;
     wire    [31:0]  cmd_bridge_rd_data;
-    wire           pll_core_locked;
+    wire            pll_core_locked;
 
     // bridge host commands
     // synchronous to clk_74a
@@ -486,7 +494,6 @@ module core_top (
 
     );
 
-
     jailbreak_core jb_core (
 
         .clk_74a,
@@ -500,6 +507,12 @@ module core_top (
         .bridge_addr,
         .bridge_wr_data,
         .bridge_wr,
+        .bridge_rd_data,
+        .bridge_rd,
+
+        .datatable_addr,
+        .datatable_data,
+        .datatable_wren,
 
         .video_vs,
         .video_hs,
@@ -515,7 +528,10 @@ module core_top (
 
         .dip_switches,
 
-        .pause             (osnotify_inmenu)
+        .pause             (osnotify_inmenu),
+
+        .hs_selected,
+        .hs_rd_data
     );
 
 
