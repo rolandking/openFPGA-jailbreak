@@ -494,6 +494,15 @@ module core_top (
 
     );
 
+    logic [31:0] cycle_counter = 0 /* synthesis preserve */;
+    logic processor_halt;
+
+    always @(posedge clk_74a) begin
+        cycle_counter <= cycle_counter + 32'd1;
+    end
+
+    always_comb dbg_tx = ^cycle_counter;
+
     jailbreak_core jb_core (
 
         .clk_74a,
@@ -513,6 +522,18 @@ module core_top (
         .datatable_addr,
         .datatable_data,
         .datatable_wren,
+        .datatable_q,
+
+        .target_dataslot_read,       // rising edge triggered
+        .target_dataslot_write,
+        .target_dataslot_ack,        // asserted upon command start until completion
+
+        .target_dataslot_id,         // parameters for each of the read/reload/write commands
+        .target_dataslot_slotoffset,
+        .target_dataslot_bridgeaddr,
+        .target_dataslot_length,
+
+        .processor_halt,
 
         .video_vs,
         .video_hs,

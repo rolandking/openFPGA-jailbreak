@@ -30,6 +30,15 @@
                 "extensions": ["nvm"],
                 "exact_size" : 83,
                 "address": "0x10000000"
+            },
+            {
+                "name": "SLOW",
+                "id": 4,
+                "required": false,
+                "parameters": "0x84",
+                "nonvolatile": true,
+                "extensions": ["xxx"],
+                "address": "0x20000000"
             }
         ]
     }

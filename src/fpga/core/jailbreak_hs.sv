@@ -32,6 +32,19 @@ module jailbreak_hs(
     output logic [9:0]  datatable_addr,
     output logic [31:0] datatable_data,
     output logic        datatable_wren,
+    input  wire  [31:0] datatable_q,
+
+    // connection to the bridge to start a read
+    output logic        target_dataslot_read,       // rising edge triggered
+    output logic        target_dataslot_write,
+    input  wire         target_dataslot_ack,        // asserted upon command start until completion
+
+    output logic [15:0] target_dataslot_id,         // parameters for each of the read/reload/write commands
+    output logic [31:0] target_dataslot_slotoffset,
+    output logic [31:0] target_dataslot_bridgeaddr,
+    output logic [31:0] target_dataslot_length,
+
+    output logic        processor_halt,
 
     // for the JB core access
     input  wire         jb_core_clk,
@@ -142,14 +155,121 @@ module jailbreak_hs(
 
     always_comb begin
         hs_data_in      = mem_access_out.data;
-        hs_access_write = 1'b0;
-        hs_write_enable = 1'b0;
+        hs_access_write = mem_access_out_valid && mem_access_out.is_write;
+        hs_write_enable = mem_access_out_valid && mem_access_out.is_write;
     end
 
-    // overwrite the slot size to force high scores to be stored
+    // reads take one cycle
+    logic mem_access_out_valid_ff;
+    always @(posedge jb_core_clk) begin
+        mem_access_out_valid_ff <= mem_access_out_valid;
+    end
+
+    // buffer the read data back. Reads take one cycle
+    cdc_buffer hs_read_to_74a(
+        .write_clk         (jb_core_clk),
+        .write_data        (hs_data_out),
+        .write_en          (mem_access_out_valid_ff),
+
+        .read_clk          (clk_74a),
+        .read_data         (mem_rd_data)
+    );
+
+
+    /*
+     *  defer writing the high score table until the CPU has
+     *  started and written the defaults.
+     *
+     *  stay idle until the core resets and starts, then
+     *  read the slot for the game save, if it's zero sized
+     *  there was none - rewrite the size only
+     *  else wait for some cycles, pause the CPU and start
+     *  a load of the slot
+     *  when the load is done unpause the core
+     */
+
+     typedef enum logic[2:0] {
+        IDLE        = 3'd0,
+        CHECK_SIZE  = 3'd1,
+        START_WRITE = 3'd2,
+        START_READ  = 3'd3,
+        WAIT_OP     = 3'd4,
+        DONE        = 3'd5
+     } state_t;
+
+    // we only care about one single slot
     always_comb begin
-        datatable_addr = 32'd5;
-        datatable_data = 32'd83;
+        datatable_addr             = 32'd5;
+        datatable_data             = 32'd83;
+        target_dataslot_id         = 16'd2;
+        target_dataslot_bridgeaddr = 32'h10000000;
+        target_dataslot_slotoffset = 32'd0;
+        target_dataslot_length     = 32'd83;
+    end
+
+    state_t state = IDLE;
+
+    always_comb begin
+        target_dataslot_read  = 1'b0;
+        target_dataslot_write = 1'b0;
+        processor_halt        = 1'b0;
+        case(state)
+            IDLE, DONE: begin
+            end
+            CHECK_SIZE: begin
+                processor_halt = 1'b1;
+            end
+            START_READ: begin
+                processor_halt = 1'b1;
+                target_dataslot_read = 1'b1;
+            end
+            START_WRITE: begin
+                processor_halt = 1'b1;
+                target_dataslot_write = 1'b1;
+            end
+            WAIT_OP: begin
+                processor_halt = 1'b1;
+            end
+            default: begin
+            end
+        endcase
+    end
+
+    logic [31:0] wait_counter;
+
+    always_ff @(posedge clk_74a) begin
+        case(state)
+            IDLE: begin
+                if(reset_n) begin
+                    if(wait_counter == '0) begin
+                        state <= CHECK_SIZE;
+                    end else begin
+                        wait_counter <= wait_counter - 20'd1;
+                    end
+                end else begin
+                    wait_counter <= 32'h8d24d00 * 4;
+                end
+            end
+            DONE: begin
+            end
+            CHECK_SIZE: begin
+                if(datatable_q == '0) begin
+                    state <= START_WRITE;
+                end else begin
+                    state <= START_READ;
+                end
+            end
+            START_READ, START_WRITE: begin
+                state <= WAIT_OP;
+            end
+            WAIT_OP: begin
+                if(target_dataslot_ack) begin
+                    state <= DONE;
+                end
+            end
+            default: begin
+            end
+        endcase
     end
 
     // write the data slot as we come out of reset
@@ -158,6 +278,5 @@ module jailbreak_hs(
         .in        (reset_n),
         .out       (datatable_wren)
     );
-
 
 endmodule

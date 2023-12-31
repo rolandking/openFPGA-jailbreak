@@ -22,6 +22,19 @@ module jailbreak_core(
     output logic[9:0]  datatable_addr,
     output logic[31:0] datatable_data,
     output logic       datatable_wren,
+    input  logic[31:0] datatable_q,
+
+    // connection to the bridge to start a read
+    output logic        target_dataslot_read,       // rising edge triggered
+    output logic        target_dataslot_write,
+    input  wire         target_dataslot_ack,        // asserted upon command start until completion
+
+    output logic [15:0] target_dataslot_id,         // parameters for each of the read/reload/write commands
+    output logic [31:0] target_dataslot_slotoffset,
+    output logic [31:0] target_dataslot_bridgeaddr,
+    output logic [31:0] target_dataslot_length,
+
+    output logic        processor_halt,
 
     output logic       video_vs,
     output logic       video_hs,
@@ -128,7 +141,7 @@ module jailbreak_core(
         p2_buttons_n    = 2'b11;
 
         // we always run in 'underclock' mode
-        underclock      = 1'b1;
+        underclock      = 1'b0;
 
     end
 
@@ -206,6 +219,18 @@ module jailbreak_core(
         .datatable_addr,
         .datatable_wren,
         .datatable_data,
+        .datatable_q,
+
+        .target_dataslot_read,
+        .target_dataslot_write,
+        .target_dataslot_ack,
+
+        .target_dataslot_id,
+        .target_dataslot_slotoffset,
+        .target_dataslot_bridgeaddr,
+        .target_dataslot_length,
+
+        .processor_halt,
 
         .jb_core_clk      (video_rgb_clock),
         .hs_address,
@@ -214,7 +239,6 @@ module jailbreak_core(
         .hs_data_in,
         .hs_data_out
     );
-
 
     Jailbreak jb_core(
         // reset pin is really ~reset
@@ -254,7 +278,7 @@ module jailbreak_core(
         .ioctl_data         (rom_data_out.data),
         .ioctl_wr           (rom_data_valid),
 
-        .pause,
+        .pause              (pause || processor_halt),
 
         .hs_address,
         .hs_data_in,
