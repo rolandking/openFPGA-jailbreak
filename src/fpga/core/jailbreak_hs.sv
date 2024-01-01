@@ -69,7 +69,7 @@ module jailbreak_hs(
     bridge_to_bytes#(
         .fixed_bits       (32'h10000000),
         .fixed_mask       (32'hffffff80),
-        .read_cycles      (8),              // need to domain cross two ways
+        .read_cycles      (16),              // need to domain cross two ways
         .write_cycles     (2)
     ) b2b (
         .clk              (clk_74a),

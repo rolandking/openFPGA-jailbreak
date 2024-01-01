@@ -204,7 +204,7 @@ module jailbreak_core(
         .read_ack        ('1)
     );
 
-    jailbreak_hs (
+    jailbreak_hs jb_hs(
         .clk_74a,
 
         .reset_n,
@@ -320,7 +320,7 @@ module jailbreak_core(
 
     logic [15:0] sound_clk_74a;
     // bring sound back into the I2S clock domain
-    cdc_buffer(
+    cdc_buffer i2s_cdc(
         .write_clk   (clk_48_660mhz),
         .write_data  (sound),
         .write_en    (1'b1),
