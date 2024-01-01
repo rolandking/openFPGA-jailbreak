@@ -5,8 +5,6 @@
 //
 
 `default_nettype none
-import pocket_pkg::*;
-import jailbreak::*;
 
 module core_top (
 
@@ -309,7 +307,7 @@ module core_top (
     assign aux_scl = 1'bZ;
     assign vpll_feed = 1'bZ;
 
-    dip_switch_t dip_switches = dip_switch_default;
+    jailbreak::dip_switch_t dip_switches = jailbreak::dip_switch_default;
 
     // read data from the high score system
     logic [31:0] hs_rd_data;
@@ -336,7 +334,7 @@ module core_top (
 
     always_ff @(posedge clk_74a) begin
         if(bridge_wr && (bridge_addr == 32'h00100000)) begin
-            dip_switches <= dip_switch_t'(bridge_wr_data);
+            dip_switches <= jailbreak::dip_switch_t'(bridge_wr_data);
         end
     end
 

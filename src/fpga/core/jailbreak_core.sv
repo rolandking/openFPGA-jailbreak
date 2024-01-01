@@ -1,8 +1,5 @@
 `timescale 1ns/1ps
 
-import jailbreak::*;
-import pocket_pkg::*;
-
 module jailbreak_core(
 
     input  wire        clk_74a,
@@ -47,9 +44,11 @@ module jailbreak_core(
     output logic        audio_lrck,
     output logic        audio_dac,
 
-    input  key_t        cont1_key,
+    input  pocket::key_t
+                        cont1_key,
 
-    input  dip_switch_t dip_switches,
+    input  jailbreak::dip_switch_t
+                        dip_switches,
 
     input  wire         pause,
 
