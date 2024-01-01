@@ -170,15 +170,7 @@ module user_top (
     output  wire            audio_dac,
     output  wire            audio_lrck,
 
-    ///////////////////////////////////////////////////
-    // bridge bus connection
-    // synchronous to clk_74a
-    output  wire            bridge_endian_little,
-    input   wire    [31:0]  bridge_addr,
-    input   wire            bridge_rd,
-    output  reg     [31:0]  bridge_rd_data,
-    input   wire            bridge_wr,
-    input   wire    [31:0]  bridge_wr_data,
+    bridge_if               bridge,
 
     ///////////////////////////////////////////////////
     // controller data
@@ -225,13 +217,29 @@ module user_top (
 
 );
 
+    `BRIDGE_SET_ENDIAN_LITTLE(bridge, 0)
+
+    pocket::bridge_addr_t bridge_addr;
+    pocket::bridge_data_t bridge_rd_data, bridge_wr_data;
+    logic bridge_rd, bridge_wr, bridge_endian_little;
+
+    always_comb begin
+        bridge_addr          = bridge.addr;
+        bridge_wr_data       = bridge.wr_data;
+        bridge_rd            = bridge.rd;
+        bridge_wr            = bridge.wr;
+        bridge_endian_little = bridge.endian_little;
+
+        bridge.rd_data       = bridge_rd_data;
+    end
+
     // not using the IR port, so turn off both the LED, and
     // disable the receive circuit to save power
     assign port_ir_tx = 0;
     assign port_ir_rx_disable = 1;
 
     // bridge endianness
-    assign bridge_endian_little = 0;
+    //assign bridge_endian_little = 0;
 
     // cart is unused, so set all level translators accordingly
     // directions are 0:IN, 1:OUT
