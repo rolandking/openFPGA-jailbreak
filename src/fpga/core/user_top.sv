@@ -6,7 +6,7 @@
 
 `default_nettype none
 
-module core_top (
+module user_top (
 
     //
     // physical connections
@@ -498,6 +498,14 @@ module core_top (
     always @(posedge clk_74a) begin
         cycle_counter <= cycle_counter + 32'd1;
     end
+
+    bridge_if bridge_in(.clk(clk_74a)), bridge_out[2](.clk(clk_74a));
+    bridge_master#(
+        .NUM_SLAVES   (2)
+    ) bm (
+        .bridge_in,
+        .bridge_out
+    );
 
     always_comb dbg_tx = ^cycle_counter;
 
