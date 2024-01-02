@@ -170,6 +170,7 @@ module user_top (
     output  wire            audio_dac,
     output  wire            audio_lrck,
 
+    output  logic           bridge_endian_little,
     bridge_if               bridge,
 
     ///////////////////////////////////////////////////
@@ -217,21 +218,49 @@ module user_top (
 
 );
 
-    `BRIDGE_SET_ENDIAN_LITTLE(bridge, 0)
+    localparam int NUM_LEAVES = 1;
+    bridge_if bridge_out[NUM_LEAVES](.clk(clk_74a));
 
+    localparam pocket::bridge_addr_range_t range_all[NUM_LEAVES] = '{
+        '{from_addr : 32'h00000000, to_addr : 32'hffffffff}
+    };
+
+    bridge_master #(
+        .ENDIAN_LITTLE     (1'b0),
+        .NUM_LEAVES        (NUM_LEAVES),
+        .ADDR_RANGES       (range_all)
+        ) bm (
+            .bridge_endian_little,
+            .bridge_in             (bridge),
+            .bridge_out            (bridge_out)
+        );
+
+    typedef enum int {
+        CMD = 0
+    } leaf_e;
+
+    /* TEMP */
     pocket::bridge_addr_t bridge_addr;
     pocket::bridge_data_t bridge_rd_data, bridge_wr_data;
-    logic bridge_rd, bridge_wr, bridge_endian_little;
+    logic bridge_rd, bridge_wr;
 
     always_comb begin
-        bridge_addr          = bridge.addr;
-        bridge_wr_data       = bridge.wr_data;
-        bridge_rd            = bridge.rd;
-        bridge_wr            = bridge.wr;
-        bridge_endian_little = bridge.endian_little;
-
-        bridge.rd_data       = bridge_rd_data;
+        bridge_addr             = bridge_out[CMD].addr;
+        bridge_wr_data          = bridge_out[CMD].wr_data;
+        bridge_rd               = bridge_out[CMD].rd;
+        bridge_wr               = bridge_out[CMD].wr;
+        bridge_out[CMD].rd_data = bridge_rd_data;
     end
+    /*
+    always_comb begin
+        bridge_addr        = bridge.addr;
+        bridge_wr_data     = bridge.wr_data;
+        bridge_rd          = bridge.rd;
+        bridge_wr          = bridge.wr;
+        bridge.rd_data     = bridge_rd_data;
+    end
+    */
+    /* TEMP */
 
     // not using the IR port, so turn off both the LED, and
     // disable the receive circuit to save power
@@ -506,14 +535,6 @@ module user_top (
     always @(posedge clk_74a) begin
         cycle_counter <= cycle_counter + 32'd1;
     end
-
-    bridge_if bridge_in(.clk(clk_74a)), bridge_out[2](.clk(clk_74a));
-    bridge_master#(
-        .NUM_SLAVES   (2)
-    ) bm (
-        .bridge_in,
-        .bridge_out
-    );
 
     always_comb dbg_tx = ^cycle_counter;
 
