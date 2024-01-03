@@ -28,8 +28,9 @@ module user_top (
     output  wire            cart_tran_bank2_dir,
 
     // GBA AD[7:0]
-    inout   wire    [7:0]   cart_tran_bank3,
-    output  wire            cart_tran_bank3_dir,
+    port_if                 port_cart_tran_bank3,
+    //inout   wire    [7:0]   cart_tran_bank3,
+    //output  wire            cart_tran_bank3_dir,
 
     // GBA A[23:16]
     inout   wire    [7:0]   cart_tran_bank1,
@@ -251,6 +252,8 @@ module user_top (
         bridge_wr               = bridge_out[CMD].wr;
         bridge_out[CMD].rd_data = bridge_rd_data;
     end
+
+    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank3)
     /*
     always_comb begin
         bridge_addr        = bridge.addr;
@@ -272,8 +275,8 @@ module user_top (
 
     // cart is unused, so set all level translators accordingly
     // directions are 0:IN, 1:OUT
-    assign cart_tran_bank3 = 8'hzz;
-    assign cart_tran_bank3_dir = 1'b0;
+    //assign cart_tran_bank3 = 8'hzz;
+    //assign cart_tran_bank3_dir = 1'b0;
     assign cart_tran_bank2 = 8'hzz;
     assign cart_tran_bank2_dir = 1'b0;
     assign cart_tran_bank1 = 8'hzz;
