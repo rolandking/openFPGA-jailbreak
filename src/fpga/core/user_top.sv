@@ -23,30 +23,24 @@ module user_top (
     // switches between 3.3v and 5v mechanically
     // output enable for multibit translators controlled by pic32
 
-    // GBA AD[15:8]
-    inout   wire    [7:0]   cart_tran_bank2,
-    output  wire            cart_tran_bank2_dir,
-
-    // GBA AD[7:0]
-    port_if                 port_cart_tran_bank3,
-    //inout   wire    [7:0]   cart_tran_bank3,
-    //output  wire            cart_tran_bank3_dir,
-
-    // GBA A[23:16]
-    inout   wire    [7:0]   cart_tran_bank1,
-    output  wire            cart_tran_bank1_dir,
-
     // GBA [7] PHI#
     // GBA [6] WR#
     // GBA [5] RD#
     // GBA [4] CS1#/CS#
     //     [3:0] unwired
-    inout   wire    [7:4]   cart_tran_bank0,
-    output  wire            cart_tran_bank0_dir,
+    port_if                 port_cart_tran_bank0,
+
+    // GBA A[23:16]
+    port_if                 port_cart_tran_bank1,
+
+    // GBA AD[15:8]
+    port_if                 port_cart_tran_bank2,
+
+    // GBA AD[7:0]
+    port_if                 port_cart_tran_bank3,
 
     // GBA CS2#/RES#
-    inout   wire            cart_tran_pin30,
-    output  wire            cart_tran_pin30_dir,
+    port_if                 port_cart_tran_pin30,
     // when GBC cart is inserted, this signal when low or weak will pull GBC /RES low with a special circuit
     // the goal is that when unconfigured, the FPGA weak pullups won't interfere.
     // thus, if GBC cart is inserted, FPGA must drive this high in order to let the level translators
@@ -54,13 +48,10 @@ module user_top (
     output  wire            cart_pin30_pwroff_reset,
 
     // GBA IRQ/DRQ
-    inout   wire            cart_tran_pin31,
-    output  wire            cart_tran_pin31_dir,
+    port_if                 port_cart_tran_pin31,
 
     // infrared
-    input   wire            port_ir_rx,
-    output  wire            port_ir_tx,
-    output  wire            port_ir_rx_disable,
+    port_ir_if              port_ir,
 
     // GBA link port
     inout   wire            port_tran_si,
@@ -245,6 +236,7 @@ module user_top (
     pocket::bridge_data_t bridge_rd_data, bridge_wr_data;
     logic bridge_rd, bridge_wr;
 
+    /* TEMP */
     always_comb begin
         bridge_addr             = bridge_out[CMD].addr;
         bridge_wr_data          = bridge_out[CMD].wr_data;
@@ -252,42 +244,20 @@ module user_top (
         bridge_wr               = bridge_out[CMD].wr;
         bridge_out[CMD].rd_data = bridge_rd_data;
     end
-
-    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank3)
-    /*
-    always_comb begin
-        bridge_addr        = bridge.addr;
-        bridge_wr_data     = bridge.wr_data;
-        bridge_rd          = bridge.rd;
-        bridge_wr          = bridge.wr;
-        bridge.rd_data     = bridge_rd_data;
-    end
-    */
     /* TEMP */
+
+    // tie the cart off
+    `PORT_TIE_OFF_TO_PORT(port_cart_tran_bank0, '1)
+    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank1)
+    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank2)
+    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank3)
+    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_pin30)
+    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_pin31)
+    assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
 
     // not using the IR port, so turn off both the LED, and
     // disable the receive circuit to save power
-    assign port_ir_tx = 0;
-    assign port_ir_rx_disable = 1;
-
-    // bridge endianness
-    //assign bridge_endian_little = 0;
-
-    // cart is unused, so set all level translators accordingly
-    // directions are 0:IN, 1:OUT
-    //assign cart_tran_bank3 = 8'hzz;
-    //assign cart_tran_bank3_dir = 1'b0;
-    assign cart_tran_bank2 = 8'hzz;
-    assign cart_tran_bank2_dir = 1'b0;
-    assign cart_tran_bank1 = 8'hzz;
-    assign cart_tran_bank1_dir = 1'b0;
-    assign cart_tran_bank0 = 4'hf;
-    assign cart_tran_bank0_dir = 1'b1;
-    assign cart_tran_pin30 = 1'b0;      // reset or cs2, we let the hw control it by itself
-    assign cart_tran_pin30_dir = 1'bz;
-    assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
-    assign cart_tran_pin31 = 1'bz;      // input
-    assign cart_tran_pin31_dir = 1'b0;  // input
+    `PORT_IR_TIE_OFF(port_ir)
 
     // link port is unused, set to input only to be safe
     // each bit may be bidirectional in some applications
