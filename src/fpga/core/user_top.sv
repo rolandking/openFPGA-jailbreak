@@ -237,27 +237,27 @@ module user_top (
     logic bridge_rd, bridge_wr;
 
     /* TEMP */
-    //bridge_if temp(.clk(bridge.clk));
+    bridge_if temp(.clk(bridge.clk));
 
-    //`BRIDGE_CONNECT_TREE_LEAF(bridge_out[CMD], temp)
+    `BRIDGE_CONNECT_TREE_LEAF(bridge_out[CMD], temp)
 
     always_comb begin
-        bridge_addr             = bridge_out[CMD].addr;
-        bridge_wr_data          = bridge_out[CMD].wr_data;
-        bridge_rd               = bridge_out[CMD].rd;
-        bridge_wr               = bridge_out[CMD].wr;
-        bridge_out[CMD].rd_data = bridge_rd_data;
-        //bridge_addr             = temp.addr;
-        //bridge_wr_data          = temp.wr_data;
-        //bridge_rd               = temp.rd;
-        //bridge_wr               = temp.wr;
-        //temp.rd_data            = bridge_rd_data;
+        //bridge_addr             = bridge_out[CMD].addr;
+        //bridge_wr_data          = bridge_out[CMD].wr_data;
+        //bridge_rd               = bridge_out[CMD].rd;
+        //bridge_wr               = bridge_out[CMD].wr;
+        //bridge_out[CMD].rd_data = bridge_rd_data;
+        bridge_addr             = temp.addr;
+        bridge_wr_data          = temp.wr_data;
+        bridge_rd               = temp.rd;
+        bridge_wr               = temp.wr;
+        temp.rd_data            = bridge_rd_data;
     end
     /* TEMP */
 
     assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
 
-    always_comb begin 
+    always_comb begin
         // tie the cart off
         port_cart_tran_bank0.tie_off_to_port(4'b1111);
         port_cart_tran_bank1.tie_off_from_port();
@@ -266,7 +266,7 @@ module user_top (
         port_cart_tran_pin30.tie_off_from_port();
         port_cart_tran_pin31.tie_off_from_port();
 
-        cart_pin30_pwroff_reset = 1'b0; 
+        cart_pin30_pwroff_reset = 1'b0;
 
         // not using the IR port, so turn off both the LED, and
         // disable the receive circuit to save power

@@ -344,7 +344,7 @@ set_global_assignment -name DEVICE_FILTER_PIN_COUNT 484
 set_global_assignment -name DEVICE_FILTER_SPEED_GRADE 8
 set_global_assignment -name ECO_OPTIMIZE_TIMING ON
 set_global_assignment -name ENABLE_OCT_DONE OFF
-set_global_assignment -name ENABLE_SIGNALTAP ON
+set_global_assignment -name ENABLE_SIGNALTAP OFF
 set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR 256
 set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name FITTER_EFFORT "AUTO FIT"
