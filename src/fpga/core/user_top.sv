@@ -237,27 +237,42 @@ module user_top (
     logic bridge_rd, bridge_wr;
 
     /* TEMP */
+    //bridge_if temp(.clk(bridge.clk));
+
+    //`BRIDGE_CONNECT_TREE_LEAF(bridge_out[CMD], temp)
+
     always_comb begin
         bridge_addr             = bridge_out[CMD].addr;
         bridge_wr_data          = bridge_out[CMD].wr_data;
         bridge_rd               = bridge_out[CMD].rd;
         bridge_wr               = bridge_out[CMD].wr;
         bridge_out[CMD].rd_data = bridge_rd_data;
+        //bridge_addr             = temp.addr;
+        //bridge_wr_data          = temp.wr_data;
+        //bridge_rd               = temp.rd;
+        //bridge_wr               = temp.wr;
+        //temp.rd_data            = bridge_rd_data;
     end
     /* TEMP */
 
-    // tie the cart off
-    `PORT_TIE_OFF_TO_PORT(port_cart_tran_bank0, '1)
-    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank1)
-    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank2)
-    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_bank3)
-    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_pin30)
-    `PORT_TIE_OFF_FROM_PORT(port_cart_tran_pin31)
     assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
 
-    // not using the IR port, so turn off both the LED, and
-    // disable the receive circuit to save power
-    `PORT_IR_TIE_OFF(port_ir)
+    always_comb begin 
+        // tie the cart off
+        port_cart_tran_bank0.tie_off_to_port(4'b1111);
+        port_cart_tran_bank1.tie_off_from_port();
+        port_cart_tran_bank2.tie_off_from_port();
+        port_cart_tran_bank3.tie_off_from_port();
+        port_cart_tran_pin30.tie_off_from_port();
+        port_cart_tran_pin31.tie_off_from_port();
+
+        cart_pin30_pwroff_reset = 1'b0; 
+
+        // not using the IR port, so turn off both the LED, and
+        // disable the receive circuit to save power
+        port_ir.tie_off();
+    end
+
 
     // link port is unused, set to input only to be safe
     // each bit may be bidirectional in some applications
