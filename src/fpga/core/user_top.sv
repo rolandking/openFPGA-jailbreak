@@ -54,94 +54,28 @@ module user_top (
     port_ir_if              port_ir,
 
     // GBA link port
-    inout   wire            port_tran_si,
-    output  wire            port_tran_si_dir,
-    inout   wire            port_tran_so,
-    output  wire            port_tran_so_dir,
-    inout   wire            port_tran_sck,
-    output  wire            port_tran_sck_dir,
-    inout   wire            port_tran_sd,
-    output  wire            port_tran_sd_dir,
+    gba_if                  port_gba,
 
     ///////////////////////////////////////////////////
     // cellular psram 0 and 1, two chips (64mbit x2 dual die per chip)
 
-    output  wire    [21:16] cram0_a,
-    inout   wire    [15:0]  cram0_dq,
-    input   wire            cram0_wait,
-    output  wire            cram0_clk,
-    output  wire            cram0_adv_n,
-    output  wire            cram0_cre,
-    output  wire            cram0_ce0_n,
-    output  wire            cram0_ce1_n,
-    output  wire            cram0_oe_n,
-    output  wire            cram0_we_n,
-    output  wire            cram0_ub_n,
-    output  wire            cram0_lb_n,
-
-    output  wire    [21:16] cram1_a,
-    inout   wire    [15:0]  cram1_dq,
-    input   wire            cram1_wait,
-    output  wire            cram1_clk,
-    output  wire            cram1_adv_n,
-    output  wire            cram1_cre,
-    output  wire            cram1_ce0_n,
-    output  wire            cram1_ce1_n,
-    output  wire            cram1_oe_n,
-    output  wire            cram1_we_n,
-    output  wire            cram1_ub_n,
-    output  wire            cram1_lb_n,
+    cram_if                 cram0,
+    cram_if                 cram1,
 
     ///////////////////////////////////////////////////
     // sdram, 512mbit 16bit
 
-    output  wire    [12:0]  dram_a,
-    output  wire    [1:0]   dram_ba,
-    inout   wire    [15:0]  dram_dq,
-    output  wire    [1:0]   dram_dqm,
-    output  wire            dram_clk,
-    output  wire            dram_cke,
-    output  wire            dram_ras_n,
-    output  wire            dram_cas_n,
-    output  wire            dram_we_n,
+    dram_if                 dram,
 
     ///////////////////////////////////////////////////
     // sram, 1mbit 16bit
 
-    output  wire    [16:0]  sram_a,
-    inout   wire    [15:0]  sram_dq,
-    output  wire            sram_oe_n,
-    output  wire            sram_we_n,
-    output  wire            sram_ub_n,
-    output  wire            sram_lb_n,
+    sram_if                 sram,
 
     ///////////////////////////////////////////////////
     // vblank driven by dock for sync in a certain mode
 
     input   wire            vblank,
-
-    ///////////////////////////////////////////////////
-    // i/o to 6515D breakout usb uart
-
-    output  wire            dbg_tx,
-    input   wire            dbg_rx,
-
-    ///////////////////////////////////////////////////
-    // i/o pads near jtag connector user can solder to
-
-    output  wire            user1,
-    input   wire            user2,
-
-    ///////////////////////////////////////////////////
-    // RFU internal i2c bus
-
-    inout   wire            aux_sda,
-    output  wire            aux_scl,
-
-    ///////////////////////////////////////////////////
-    // RFU, do not use
-    output  wire            vpll_feed,
-
 
     //
     // logical connections
@@ -235,24 +169,7 @@ module user_top (
     pocket::bridge_addr_t bridge_addr;
     pocket::bridge_data_t bridge_rd_data, bridge_wr_data;
     logic bridge_rd, bridge_wr;
-
-    /* TEMP */
-    bridge_if temp(.clk(bridge.clk));
-
-    `BRIDGE_CONNECT_TREE_LEAF(bridge_out[CMD], temp)
-
-    always_comb begin
-        //bridge_addr             = bridge_out[CMD].addr;
-        //bridge_wr_data          = bridge_out[CMD].wr_data;
-        //bridge_rd               = bridge_out[CMD].rd;
-        //bridge_wr               = bridge_out[CMD].wr;
-        //bridge_out[CMD].rd_data = bridge_rd_data;
-        bridge_addr             = temp.addr;
-        bridge_wr_data          = temp.wr_data;
-        bridge_rd               = temp.rd;
-        bridge_wr               = temp.wr;
-        temp.rd_data            = bridge_rd_data;
-    end
+    always_comb bridge_out[CMD].explode(bridge_addr, bridge_wr_data, bridge_wr, bridge_rd_data, bridge_rd);
     /* TEMP */
 
     assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
@@ -271,66 +188,16 @@ module user_top (
         // not using the IR port, so turn off both the LED, and
         // disable the receive circuit to save power
         port_ir.tie_off();
+
+        port_gba.tie_off();
+
+        cram0.tie_off();
+        cram1.tie_off();
+
+        dram.tie_off();
+
+        sram.tie_off();
     end
-
-
-    // link port is unused, set to input only to be safe
-    // each bit may be bidirectional in some applications
-    assign port_tran_so = 1'bz;
-    assign port_tran_so_dir = 1'b0;     // SO is output only
-    assign port_tran_si = 1'bz;
-    assign port_tran_si_dir = 1'b0;     // SI is input only
-    assign port_tran_sck = 1'bz;
-    assign port_tran_sck_dir = 1'b0;    // clock direction can change
-    assign port_tran_sd = 1'bz;
-    assign port_tran_sd_dir = 1'b0;     // SD is input and not used
-
-    // tie off the rest of the pins we are not using
-    assign cram0_a = 'h0;
-    assign cram0_dq = {16{1'bZ}};
-    assign cram0_clk = 0;
-    assign cram0_adv_n = 1;
-    assign cram0_cre = 0;
-    assign cram0_ce0_n = 1;
-    assign cram0_ce1_n = 1;
-    assign cram0_oe_n = 1;
-    assign cram0_we_n = 1;
-    assign cram0_ub_n = 1;
-    assign cram0_lb_n = 1;
-
-    assign cram1_a = 'h0;
-    assign cram1_dq = {16{1'bZ}};
-    assign cram1_clk = 0;
-    assign cram1_adv_n = 1;
-    assign cram1_cre = 0;
-    assign cram1_ce0_n = 1;
-    assign cram1_ce1_n = 1;
-    assign cram1_oe_n = 1;
-    assign cram1_we_n = 1;
-    assign cram1_ub_n = 1;
-    assign cram1_lb_n = 1;
-
-    assign dram_a = 'h0;
-    assign dram_ba = 'h0;
-    assign dram_dq = {16{1'bZ}};
-    assign dram_dqm = 'h0;
-    assign dram_clk = 'h0;
-    assign dram_cke = 'h0;
-    assign dram_ras_n = 'h1;
-    assign dram_cas_n = 'h1;
-    assign dram_we_n = 'h1;
-
-    assign sram_a = 'h0;
-    assign sram_dq = {16{1'bZ}};
-    assign sram_oe_n  = 1;
-    assign sram_we_n  = 1;
-    assign sram_ub_n  = 1;
-    assign sram_lb_n  = 1;
-
-    assign dbg_tx = 1'bZ;
-    assign user1 = 1'bZ;
-    assign aux_scl = 1'bZ;
-    assign vpll_feed = 1'bZ;
 
     jailbreak::dip_switch_t dip_switches = jailbreak::dip_switch_default;
 
@@ -517,14 +384,7 @@ module user_top (
 
     );
 
-    logic [31:0] cycle_counter = 0 /* synthesis preserve */;
     logic processor_halt;
-
-    always @(posedge clk_74a) begin
-        cycle_counter <= cycle_counter + 32'd1;
-    end
-
-    always_comb dbg_tx = ^cycle_counter;
 
     jailbreak_core jb_core (
 
