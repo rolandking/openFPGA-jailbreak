@@ -7,8 +7,7 @@ module jailbreak_core(
 
     output logic       pll_core_locked,
 
-    output logic       video_rgb_clock,
-    output logic       video_rgb_clock_90,
+    video_if           video,
 
     input  wire[31:0]  bridge_addr,
     input  wire[31:0]  bridge_wr_data,
@@ -32,13 +31,6 @@ module jailbreak_core(
     output logic [31:0] target_dataslot_length,
 
     output logic        processor_halt,
-
-    output logic       video_vs,
-    output logic       video_hs,
-    output logic       video_de,
-    output logic       video_skip,
-    // FIXME: use the structure
-    output logic [23:0] video_rgb,
 
     output logic        audio_mclk,
     output logic        audio_lrck,
@@ -88,8 +80,8 @@ module jailbreak_core(
 
 
     always_comb begin
-        video_rgb_clock    = clk_48_660mhz;
-        video_rgb_clock_90 = clk_48_660mhz_90degrees;
+        video.rgb_clock    = clk_48_660mhz;
+        video.rgb_clock_90 = clk_48_660mhz_90degrees;
     end
 
     /*
@@ -123,8 +115,6 @@ module jailbreak_core(
     logic [3:0]  video_b;
 
     always_comb begin
-        // temp tieoff
-//        coin_n          = 2'b11;
         coin_n          = {1'b1,~cont1_key.face_select};
         btn_service_n   = 1'b1;
         btn_start_n     = 2'b11;
@@ -231,7 +221,7 @@ module jailbreak_core(
 
         .processor_halt,
 
-        .jb_core_clk      (video_rgb_clock),
+        .jb_core_clk      (video.rgb_clock),
         .hs_address,
         .hs_access_write,
         .hs_write_enable,
@@ -298,23 +288,23 @@ module jailbreak_core(
      edge_detect#(
         .positive(1'b0)
      ) video_hsync_fall (
-        .clk    (video_rgb_clock ),
+        .clk    (video.rgb_clock ),
         .in     (video_hsync),
-        .out    (video_hs)
+        .out    (video.hs)
      );
 
      edge_detect#(
         .positive(1'b0)
      ) video_vsync_fall (
-        .clk    (video_rgb_clock ),
+        .clk    (video.rgb_clock ),
         .in     (video_vsync),
-        .out    (video_vs)
+        .out    (video.vs)
      );
 
      always_comb begin
-        video_de   = ~(video_vblank || video_hblank);
-        video_skip = video_de && !ce_pix;
-        video_rgb  = video_de ? {video_r, 4'b0, video_g, 4'b0, video_b, 4'b0} : 24'b0;
+        video.de   = ~(video_vblank || video_hblank);
+        video.skip = video.de && !ce_pix;
+        video.rgb  = video.de ? {video_r, 4'b0, video_g, 4'b0, video_b, 4'b0} : 24'b0;
      end
 
     logic [15:0] sound_clk_74a;

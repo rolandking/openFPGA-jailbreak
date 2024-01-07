@@ -83,13 +83,7 @@ module user_top (
 
     ///////////////////////////////////////////////////
     // video, audio output to scaler
-    output  wire    [23:0]  video_rgb,
-    output  wire            video_rgb_clock,
-    output  wire            video_rgb_clock_90,
-    output  wire            video_de,
-    output  wire            video_skip,
-    output  wire            video_vs,
-    output  wire            video_hs,
+    video_if                video,
 
     output  wire            audio_mclk,
     input   wire            audio_adc,
@@ -393,8 +387,7 @@ module user_top (
 
         .pll_core_locked,
 
-        .video_rgb_clock,
-        .video_rgb_clock_90,
+        .video,
 
         .bridge_addr,
         .bridge_wr_data,
@@ -417,12 +410,6 @@ module user_top (
         .target_dataslot_length,
 
         .processor_halt,
-
-        .video_vs,
-        .video_hs,
-        .video_de,
-        .video_skip,
-        .video_rgb,
 
         .audio_mclk,
         .audio_lrck,
