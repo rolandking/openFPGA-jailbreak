@@ -85,10 +85,7 @@ module user_top (
     // video, audio output to scaler
     video_if                video,
 
-    output  wire            audio_mclk,
-    input   wire            audio_adc,
-    output  wire            audio_dac,
-    output  wire            audio_lrck,
+    audio_if                audio,
 
     output  logic           bridge_endian_little,
     bridge_if               bridge,
@@ -411,9 +408,7 @@ module user_top (
 
         .processor_halt,
 
-        .audio_mclk,
-        .audio_lrck,
-        .audio_dac,
+        .audio,
 
         .cont1_key,
 

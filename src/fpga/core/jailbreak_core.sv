@@ -2,51 +2,46 @@
 
 module jailbreak_core(
 
-    input  wire        clk_74a,
-    input  wire        reset_n,
+    input  wire                    clk_74a,
+    input  wire                    reset_n,
 
-    output logic       pll_core_locked,
+    output logic                   pll_core_locked,
 
-    video_if           video,
+    video_if                       video,
 
-    input  wire[31:0]  bridge_addr,
-    input  wire[31:0]  bridge_wr_data,
-    input  wire        bridge_wr,
-    input  wire[31:0]  bridge_rd_data,
-    input  wire        bridge_rd,
+    input  wire[31:0]              bridge_addr,
+    input  wire[31:0]              bridge_wr_data,
+    input  wire                    bridge_wr,
+    input  wire[31:0]              bridge_rd_data,
+    input  wire                    bridge_rd,
 
-    output logic[9:0]  datatable_addr,
-    output logic[31:0] datatable_data,
-    output logic       datatable_wren,
-    input  logic[31:0] datatable_q,
+    output logic[9:0]              datatable_addr,
+    output logic[31:0]             datatable_data,
+    output logic                   datatable_wren,
+    input  logic[31:0]             datatable_q,
 
     // connection to the bridge to start a read
-    output logic        target_dataslot_read,       // rising edge triggered
-    output logic        target_dataslot_write,
-    input  wire         target_dataslot_ack,        // asserted upon command start until completion
+    output logic                   target_dataslot_read,       // rising edge triggered
+    output logic                   target_dataslot_write,
+    input  wire                    target_dataslot_ack,        // asserted upon command start until completion
 
-    output logic [15:0] target_dataslot_id,         // parameters for each of the read/reload/write commands
-    output logic [31:0] target_dataslot_slotoffset,
-    output logic [31:0] target_dataslot_bridgeaddr,
-    output logic [31:0] target_dataslot_length,
+    output logic [15:0]            target_dataslot_id,         // parameters for each of the read/reload/write commands
+    output logic [31:0]            target_dataslot_slotoffset,
+    output logic [31:0]            target_dataslot_bridgeaddr,
+    output logic [31:0]            target_dataslot_length,
 
-    output logic        processor_halt,
+    output logic                   processor_halt,
 
-    output logic        audio_mclk,
-    output logic        audio_lrck,
-    output logic        audio_dac,
+    audio_if                       audio,
 
-    input  pocket::key_t
-                        cont1_key,
+    input  pocket::key_t           cont1_key,
 
-    input  jailbreak::dip_switch_t
-                        dip_switches,
+    input  jailbreak::dip_switch_t dip_switches,
 
-    input  wire         pause,
+    input  wire                    pause,
 
-    output logic[31:0]  hs_rd_data,
-    output logic        hs_selected
-
+    output logic[31:0]             hs_rd_data,
+    output logic                   hs_selected
 );
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -334,13 +329,13 @@ module jailbreak_core(
 
         if(counter == '0) begin
             shifter    <= {1'b0, sound_clk_74a, 15'b0};
-            audio_lrck <= ~audio_lrck;
+            audio.lrck <= ~audio.lrck;
         end
     end
 
     always_comb begin
-        audio_mclk = clk_12_288_mhz;
-        audio_dac  = shifter[31];
+        audio.mclk = clk_12_288_mhz;
+        audio.dac  = shifter[31];
     end
 
 endmodule
