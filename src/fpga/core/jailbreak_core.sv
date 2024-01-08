@@ -34,7 +34,7 @@ module jailbreak_core(
 
     audio_if                       audio,
 
-    input  pocket::key_t           cont1_key,
+    input  pocket::key_t           controller_key,
 
     input  jailbreak::dip_switch_t dip_switches,
 
@@ -110,18 +110,18 @@ module jailbreak_core(
     logic [3:0]  video_b;
 
     always_comb begin
-        coin_n          = {1'b1,~cont1_key.face_select};
+        coin_n          = {1'b1,~controller_key.face_select};
         btn_service_n   = 1'b1;
         btn_start_n     = 2'b11;
-        btn_start_n     = {1'b1,~cont1_key.face_start};
+        btn_start_n     = {1'b1,~controller_key.face_start};
         p1_joystick_n   = {
-            ~cont1_key.dpad_down,
-            ~cont1_key.dpad_up,
-            ~cont1_key.dpad_right,
-            ~cont1_key.dpad_left
+            ~controller_key.dpad_down,
+            ~controller_key.dpad_up,
+            ~controller_key.dpad_right,
+            ~controller_key.dpad_left
         };
         p2_joystick_n   = 4'b1111;
-        p1_buttons_n    = {~cont1_key.face_a,~cont1_key.face_b};
+        p1_buttons_n    = {~controller_key.face_a,~controller_key.face_b};
         p2_buttons_n    = 2'b11;
 
         // we always run in 'underclock' mode

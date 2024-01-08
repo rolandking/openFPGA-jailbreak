@@ -120,19 +120,7 @@ module user_top (
     //   [ 7: 0] ltrig
     //   [15: 8] rtrig
     //
-    input   wire    [31:0]  cont1_key,
-    input   wire    [31:0]  cont2_key,
-    input   wire    [31:0]  cont3_key,
-    input   wire    [31:0]  cont4_key,
-    input   wire    [31:0]  cont1_joy,
-    input   wire    [31:0]  cont2_joy,
-    input   wire    [31:0]  cont3_joy,
-    input   wire    [31:0]  cont4_joy,
-    input   wire    [15:0]  cont1_trig,
-    input   wire    [15:0]  cont2_trig,
-    input   wire    [15:0]  cont3_trig,
-    input   wire    [15:0]  cont4_trig
-
+    controller_if           controller[1:4]
 );
 
     localparam int NUM_LEAVES = 1;
@@ -410,7 +398,7 @@ module user_top (
 
         .audio,
 
-        .cont1_key,
+        .controller_key    (controller[1].key),
 
         .dip_switches,
 
@@ -419,6 +407,5 @@ module user_top (
         .hs_selected,
         .hs_rd_data
     );
-
 
 endmodule
