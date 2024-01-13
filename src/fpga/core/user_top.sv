@@ -155,12 +155,12 @@ module user_top (
 
     always_comb begin
         // tie the cart off
-        port_cart_tran_bank0.tie_off_to_port(4'b1111);
-        port_cart_tran_bank1.tie_off_from_port();
-        port_cart_tran_bank2.tie_off_from_port();
-        port_cart_tran_bank3.tie_off_from_port();
-        port_cart_tran_pin30.tie_off_from_port();
-        port_cart_tran_pin31.tie_off_from_port();
+        port_cart_tran_bank0.tie_off_out(4'b1111);
+        port_cart_tran_bank1.tie_off_in();
+        port_cart_tran_bank2.tie_off_in();
+        port_cart_tran_bank3.tie_off_in();
+        port_cart_tran_pin30.tie_off_in();
+        port_cart_tran_pin31.tie_off_in();
 
         cart_pin30_pwroff_reset = 1'b0;
 
