@@ -148,7 +148,13 @@ module user_top (
     pocket::bridge_addr_t bridge_addr;
     pocket::bridge_data_t bridge_rd_data, bridge_wr_data;
     logic bridge_rd, bridge_wr;
-    always_comb bridge_out[CMD].explode(bridge_addr, bridge_wr_data, bridge_wr, bridge_rd_data, bridge_rd);
+    always_comb begin
+        bridge_addr             = bridge_out[CMD].addr;
+        bridge_wr_data          = bridge_out[CMD].wr_data;
+        bridge_rd               = bridge_out[CMD].rd;
+        bridge_wr               = bridge_out[CMD].wr;
+        bridge_out[CMD].rd_data = bridge_rd_data;
+    end
     /* TEMP */
 
     assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
