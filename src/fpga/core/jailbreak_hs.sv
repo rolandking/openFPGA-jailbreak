@@ -131,7 +131,7 @@ module jailbreak_hs(
     remapper #(
         .BASE_ADDRESS       (32'h00000000),
         .MAP_ADDRESS        (32'h00000620),
-        .MAP_LENGTH         (32'h50)
+        .MAP_LENGTH         (16'h50)
     ) hs1_remap (
         .raw_address        (mem_access_out.address),
         .selected           (hs1_selected),
@@ -142,7 +142,7 @@ module jailbreak_hs(
     remapper #(
         .BASE_ADDRESS       (32'h00000050),
         .MAP_ADDRESS        (32'h0000057e),
-        .MAP_LENGTH         (32'h3)
+        .MAP_LENGTH         (16'h3)
     ) hs2_remap  (
         .raw_address        (mem_access_out.address),
         .selected           (hs2_selected),
@@ -150,7 +150,7 @@ module jailbreak_hs(
     );
 
     always_comb begin
-        hs_address  = hs1_selected ? hs1_address : hs2_address;
+        hs_address  = hs1_selected ? hs1_address[11:0] : hs2_address[11:0];
     end
 
     always_comb begin
@@ -199,7 +199,7 @@ module jailbreak_hs(
 
     // we only care about one single slot
     always_comb begin
-        datatable_addr             = 32'd5;
+        datatable_addr             = 10'd5;
         datatable_data             = 32'd83;
         target_dataslot_id         = 16'd2;
         target_dataslot_bridgeaddr = 32'h10000000;
