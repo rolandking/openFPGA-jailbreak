@@ -51,10 +51,10 @@ module user_top (
     port_if                 port_cart_tran_pin31,
 
     // infrared
-    port_ir_if              port_ir,
+    ir_if                   ir,
 
     // GBA link port
-    gba_if                  port_gba,
+    gba_if                  gba,
 
     ///////////////////////////////////////////////////
     // cellular psram 0 and 1, two chips (64mbit x2 dual die per chip)
@@ -172,9 +172,9 @@ module user_top (
 
         // not using the IR port, so turn off both the LED, and
         // disable the receive circuit to save power
-        port_ir.tie_off();
+        ir.tie_off();
 
-        port_gba.tie_off();
+        gba.tie_off();
 
         cram0.tie_off();
         cram1.tie_off();
