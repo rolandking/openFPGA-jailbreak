@@ -9,11 +9,7 @@ module jailbreak_core(
 
     video_if                       video,
 
-    input  wire[31:0]              bridge_addr,
-    input  wire[31:0]              bridge_wr_data,
-    input  wire                    bridge_wr,
-    input  wire[31:0]              bridge_rd_data,
-    input  wire                    bridge_rd,
+    bridge_if                      bridge,
 
     output logic[9:0]              datatable_addr,
     output logic[31:0]             datatable_data,
@@ -136,28 +132,19 @@ module jailbreak_core(
     logic [7:0]  mem_wr_data;
     logic        mem_wr;
 
+    bridge_if#(
+        .data_width(8)
+    ) mem (
+        .clk  (bridge.clk)
+    );
+
     bridge_to_bytes#(
         // 0x00000000 - 0x0003fffff
-        .fixed_bits       (32'h00000000),
-        .fixed_mask       (32'hfffc0000),
         .read_cycles      (2),
         .write_cycles     (2)
     ) b2b (
-        .clk              (clk_74a),
-        .bridge_addr      (bridge_addr),
-        .bridge_wr_data   (bridge_wr_data),
-        .bridge_wr        (bridge_wr),
-        .bridge_rd_data   (),
-        .bridge_rd        (1'b0),
-        .bridge_rd_ready  (),
-
-        .mem_address,
-        .mem_wr_data,
-        .mem_wr,
-        .mem_rd_data      ('x),
-        .mem_rd           (),
-
-        .selected         ()
+        .bridge           (bridge),
+        .mem              (mem)
     );
 
     typedef struct packed {
@@ -169,17 +156,17 @@ module jailbreak_core(
     logic rom_data_valid;
 
     always_comb begin
-        rom_data_in.address = mem_address[24:0];
-        rom_data_in.data    = mem_wr_data;
+        rom_data_in.address = mem.addr[24:0];
+        rom_data_in.data    = mem.wr_data;
     end
 
     cdc_fifo#(
         .address_width(8),
         .data_width($bits(rom_data_t))
     ) rom_data_fifo(
-        .write_clk       (clk_74a),
+        .write_clk       (mem.clk),
         .write_data      (rom_data_in),
-        .write_valid     (mem_wr),
+        .write_valid     (mem.wr),
         .write_ready     (),
 
         .read_clk        (clk_48_660mhz),
@@ -188,6 +175,7 @@ module jailbreak_core(
         .read_ack        ('1)
     );
 
+    /*
     jailbreak_hs jb_hs(
         .clk_74a,
 
@@ -223,6 +211,7 @@ module jailbreak_core(
         .hs_data_in,
         .hs_data_out
     );
+    */
 
     Jailbreak jb_core(
         // reset pin is really ~reset

@@ -123,11 +123,13 @@ module user_top (
     controller_if           controller[1:4]
 );
 
-    localparam int NUM_LEAVES = 1;
+    localparam int NUM_LEAVES = 3;
     bridge_if bridge_out[NUM_LEAVES](.clk(clk_74a));
 
     localparam pocket::bridge_addr_range_t range_all[NUM_LEAVES] = '{
-        '{from_addr : 32'h00000000, to_addr : 32'hffffffff}
+        '{from_addr : 32'hf8000000, to_addr : 32'hffffffff},
+        '{from_addr : 32'h00000000, to_addr : 32'h000fffff},
+        '{from_addr : 32'h00100000, to_addr : 32'h00100000}
     };
 
     bridge_master #(
@@ -141,19 +143,21 @@ module user_top (
         );
 
     typedef enum int {
-        CMD = 0
+        CMD = 0,
+        ROM = 1,
+        DIP = 2
     } leaf_e;
 
     /* TEMP */
-    pocket::bridge_addr_t bridge_addr;
-    pocket::bridge_data_t bridge_rd_data, bridge_wr_data;
-    logic bridge_rd, bridge_wr;
+    pocket::bridge_addr_t cmd_bridge_addr;
+    pocket::bridge_data_t cmd_bridge_rd_data, cmd_bridge_wr_data;
+    logic cmd_bridge_rd, cmd_bridge_wr;
     always_comb begin
-        bridge_addr             = bridge_out[CMD].addr;
-        bridge_wr_data          = bridge_out[CMD].wr_data;
-        bridge_rd               = bridge_out[CMD].rd;
-        bridge_wr               = bridge_out[CMD].wr;
-        bridge_out[CMD].rd_data = bridge_rd_data;
+        cmd_bridge_addr             = bridge_out[CMD].addr;
+        cmd_bridge_wr_data          = bridge_out[CMD].wr_data;
+        cmd_bridge_rd               = bridge_out[CMD].rd;
+        cmd_bridge_wr               = bridge_out[CMD].wr;
+        bridge_out[CMD].rd_data     = cmd_bridge_rd_data;
     end
     /* TEMP */
 
@@ -193,6 +197,7 @@ module user_top (
     // for bridge write data, we just broadcast it to all bus devices
     // for bridge read data, we have to mux it
     // add your own devices here
+    /*
     always_comb begin
         bridge_rd_data = 'x;
 
@@ -208,11 +213,16 @@ module user_top (
             bridge_rd_data = hs_rd_data;
         end
     end
+    */
 
     always_ff @(posedge clk_74a) begin
-        if(bridge_wr && (bridge_addr == 32'h00100000)) begin
-            dip_switches <= jailbreak::dip_switch_t'(bridge_wr_data);
+        if(bridge_out[DIP].wr && (bridge_out[DIP].addr == 32'h00100000)) begin
+            dip_switches <= jailbreak::dip_switch_t'(bridge_out[DIP].wr_data);
         end
+    end
+
+    always_comb begin
+        bridge_out[DIP].rd_data = 32'(dip_switches);
     end
 
     //
@@ -220,7 +230,6 @@ module user_top (
     //
     // driven by host commands, can be used as core-wide reset
     wire            reset_n;
-    wire    [31:0]  cmd_bridge_rd_data;
     wire            pll_core_locked;
 
     // bridge host commands
@@ -299,11 +308,11 @@ module user_top (
         .reset_n            ( reset_n ),
 
         .bridge_endian_little   ( bridge_endian_little ),
-        .bridge_addr            ( bridge_addr ),
-        .bridge_rd              ( bridge_rd ),
+        .bridge_addr            ( cmd_bridge_addr ),
+        .bridge_rd              ( cmd_bridge_rd ),
         .bridge_rd_data         ( cmd_bridge_rd_data ),
-        .bridge_wr              ( bridge_wr ),
-        .bridge_wr_data         ( bridge_wr_data ),
+        .bridge_wr              ( cmd_bridge_wr ),
+        .bridge_wr_data         ( cmd_bridge_wr_data ),
 
         .status_boot_done       ( status_boot_done ),
         .status_setup_done      ( status_setup_done ),
@@ -380,11 +389,7 @@ module user_top (
 
         .video,
 
-        .bridge_addr,
-        .bridge_wr_data,
-        .bridge_wr,
-        .bridge_rd_data,
-        .bridge_rd,
+        .bridge (bridge_out[ROM]),
 
         .datatable_addr,
         .datatable_data,
