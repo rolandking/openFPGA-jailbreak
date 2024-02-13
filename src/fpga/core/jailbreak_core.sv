@@ -2,42 +2,38 @@
 
 module jailbreak_core(
 
-    input  wire                    clk_74a,
-    input  wire                    reset_n,
+    input wire           clk_74a,
 
-    output logic                   pll_core_locked,
+    bridge_if            bridge_rom,
+    bridge_if            bridge_dip,
+    bridge_if            bridge_hs,
 
-    video_if                       video,
+    input logic          reset_n,
+    input logic          in_menu,
 
-    bridge_if                      bridge,
+    output bridge_pkg::host_request_status_result_e core_status,
+    core_ready_to_run_if core_ready_to_run,
 
-    output logic[9:0]              datatable_addr,
-    output logic[31:0]             datatable_data,
-    output logic                   datatable_wren,
-    input  logic[31:0]             datatable_q,
+    video_if             video,
+    audio_if             audio,
 
-    // connection to the bridge to start a read
-    output logic                   target_dataslot_read,       // rising edge triggered
-    output logic                   target_dataslot_write,
-    input  wire                    target_dataslot_ack,        // asserted upon command start until completion
+    /*
+    .datatable_addr,
+    .datatable_data,
+    .datatable_wren,
+    .datatable_q,
 
-    output logic [15:0]            target_dataslot_id,         // parameters for each of the read/reload/write commands
-    output logic [31:0]            target_dataslot_slotoffset,
-    output logic [31:0]            target_dataslot_bridgeaddr,
-    output logic [31:0]            target_dataslot_length,
+    .target_dataslot_read,       // rising edge triggered
+    .target_dataslot_write,
+    .target_dataslot_ack,        // asserted upon command start until completion
 
-    output logic                   processor_halt,
+    .target_dataslot_id,         // parameters for each of the read/reload/write commands
+    .target_dataslot_slotoffset,
+    .target_dataslot_bridgeaddr,
+    .target_dataslot_length,
+    */
 
-    audio_if                       audio,
-
-    input  pocket::key_t           controller_key,
-
-    input  jailbreak::dip_switch_t dip_switches,
-
-    input  wire                    pause,
-
-    output logic[31:0]             hs_rd_data,
-    output logic                   hs_selected
+    input pocket::key_t controller_key
 );
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -54,9 +50,10 @@ module jailbreak_core(
         reconfigs down to 48.660MHz. Use only that option
     */
 
-    wire    clk_48_660mhz;
-    wire    clk_48_660mhz_90degrees;
-    wire    clk_12_288_mhz;
+    logic clk_48_660mhz;
+    logic clk_48_660mhz_90degrees;
+    logic clk_12_288_mhz;
+    logic pll_core_locked;
 
     mf_pllbase mp1 (
         .refclk         ( clk_74a ),
@@ -73,7 +70,26 @@ module jailbreak_core(
     always_comb begin
         video.rgb_clock    = clk_48_660mhz;
         video.rgb_clock_90 = clk_48_660mhz_90degrees;
+
+        core_status = bridge_pkg::host_request_status_result_default(
+            pll_core_locked,
+            reset_n,
+            1'b0
+        );
     end
+
+    core_ready_to_run crtr(
+        .bridge_clk       (bridge_rom.clk),
+        .pll_core_locked,
+        .reset_n,
+        .core_ready_to_run
+    );
+
+    jailbreak::dip_switch_t dip_switches;
+    jailbreak_dip(
+        .bridge       (bridge_dip),
+        .dip_switches
+    );
 
     /*
     *  hook up the Jailbreak core from MiSTer here
@@ -125,25 +141,17 @@ module jailbreak_core(
 
     end
 
-    // bridge ROM writes. ROM here goes from 0x00000000 to 0x0002423F
-    // so mask out 0x0003FFFF
-
-    logic [31:0] mem_address;
-    logic [7:0]  mem_wr_data;
-    logic        mem_wr;
-
     bridge_if#(
         .data_width(8)
     ) mem (
-        .clk  (bridge.clk)
+        .clk  (bridge_rom.clk)
     );
 
     bridge_to_bytes#(
-        // 0x00000000 - 0x0003fffff
         .read_cycles      (2),
         .write_cycles     (2)
     ) b2b (
-        .bridge           (bridge),
+        .bridge           (bridge_rom),
         .mem              (mem)
     );
 
@@ -160,6 +168,8 @@ module jailbreak_core(
         rom_data_in.data    = mem.wr_data;
     end
 
+    // FIXME change this to a bridge fifo .. more generic
+    //       then add the bridge_to_bytes on the end
     cdc_fifo#(
         .address_width(8),
         .data_width($bits(rom_data_t))
@@ -174,6 +184,14 @@ module jailbreak_core(
         .read_valid      (rom_data_valid),
         .read_ack        ('1)
     );
+
+    logic processor_halt, pause;
+
+    always_comb begin
+        pause = in_menu;
+        // FIXME: should come out of jailbreak_hs
+        processor_halt = '0;
+    end
 
     /*
     jailbreak_hs jb_hs(

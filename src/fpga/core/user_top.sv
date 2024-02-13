@@ -123,13 +123,16 @@ module user_top (
     controller_if           controller[1:4]
 );
 
-    localparam int NUM_LEAVES = 3;
+    localparam int NUM_LEAVES = 6;
     bridge_if bridge_out[NUM_LEAVES](.clk(clk_74a));
 
     localparam pocket::bridge_addr_range_t range_all[NUM_LEAVES] = '{
-        '{from_addr : 32'hf8000000, to_addr : 32'hffffffff},
+        '{from_addr : 32'hf8000000, to_addr : 32'hf8001fff},
+        '{from_addr : 32'hf8002000, to_addr : 32'hf80020ff},
+        '{from_addr : 32'hf8002380, to_addr : 32'hf80023ff},
         '{from_addr : 32'h00000000, to_addr : 32'h000fffff},
-        '{from_addr : 32'h00100000, to_addr : 32'h00100000}
+        '{from_addr : 32'h00100000, to_addr : 32'h00100000},
+        '{from_addr : 32'h10000000, to_addr : 32'h10000052}
     };
 
     bridge_master #(
@@ -143,27 +146,16 @@ module user_top (
         );
 
     typedef enum int {
-        CMD = 0,
-        ROM = 1,
-        DIP = 2
+        CMD      = 0,
+        ID       = 1,
+        DATASLOT = 2,
+        ROM      = 3,
+        DIP      = 4,
+        HS       = 5
     } leaf_e;
 
-    /* TEMP */
-    pocket::bridge_addr_t cmd_bridge_addr;
-    pocket::bridge_data_t cmd_bridge_rd_data, cmd_bridge_wr_data;
-    logic cmd_bridge_rd, cmd_bridge_wr;
     always_comb begin
-        cmd_bridge_addr             = bridge_out[CMD].addr;
-        cmd_bridge_wr_data          = bridge_out[CMD].wr_data;
-        cmd_bridge_rd               = bridge_out[CMD].rd;
-        cmd_bridge_wr               = bridge_out[CMD].wr;
-        bridge_out[CMD].rd_data     = cmd_bridge_rd_data;
-    end
-    /* TEMP */
-
-    assign cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
-
-    always_comb begin
+        cart_pin30_pwroff_reset = 1'b0;  // hardware can control this
         // tie the cart off
         port_cart_tran_bank0.tie_off_out(4'b1111);
         port_cart_tran_bank1.tie_off_in();
@@ -171,8 +163,6 @@ module user_top (
         port_cart_tran_bank3.tie_off_in();
         port_cart_tran_pin30.tie_off_in();
         port_cart_tran_pin31.tie_off_in();
-
-        cart_pin30_pwroff_reset = 1'b0;
 
         // not using the IR port, so turn off both the LED, and
         // disable the receive circuit to save power
@@ -186,211 +176,98 @@ module user_top (
         dram.tie_off();
 
         sram.tie_off();
+
+        //video.tie_off();
+        //audio.tie_off();
     end
 
-    jailbreak::dip_switch_t dip_switches = jailbreak::dip_switch_default;
+    bridge_pkg::host_request_status_result_e core_status;
+    logic                                    reset_n;
+    host_dataslot_request_read_if            host_dataslot_request_read();
+    host_dataslot_request_write_if           host_dataslot_request_write();
+    host_dataslot_update_if                  host_dataslot_update();
+    host_dataslot_complete_if                host_dataslot_complete();
+    host_rtc_update_if                       host_rtc_update();
+    host_savestate_start_query_if            host_savestate_start_query();
+    host_savestate_load_query_if             host_savestate_load_query();
+    logic                                    in_menu;
+    host_notify_cartridge_if                 host_notify_cartridge();
+    logic                                    docked;
+    host_notify_display_mode_if              host_notify_display_mode();
 
-    // read data from the high score system
-    logic [31:0] hs_rd_data;
-    logic        hs_selected;
+    core_ready_to_run_if                     core_ready_to_run();
+    core_debug_event_log_if                  core_debug_event_log();
+    core_dataslot_read_if                    core_dataslot_read();
+    core_dataslot_write_if                   core_dataslot_write();
+    core_dataslot_flush_if                   core_dataslot_flush();
+    core_get_dataslot_filename_if            core_get_dataslot_filename();
+    core_open_dataslot_file_if               core_open_dataslot_file();
 
-    // for bridge write data, we just broadcast it to all bus devices
-    // for bridge read data, we have to mux it
-    // add your own devices here
-    /*
-    always_comb begin
-        bridge_rd_data = 'x;
+    bridge_core bc(
+        .bridge_cmd                        (bridge_out[CMD]),
+        .bridge_id                         (bridge_out[ID]),
+        .bridge_dataslot                   (bridge_out[DATASLOT]),
+        .core_status,
+        .reset_n,
+        .host_dataslot_request_read,
+        .host_dataslot_request_write,
+        .host_dataslot_update,
+        .host_dataslot_complete,
+        .host_rtc_update,
+        .host_savestate_start_query,
+        .host_savestate_load_query,
+        .in_menu,
+        .host_notify_cartridge,
+        .docked,
+        .host_notify_display_mode,
 
-        if(bridge_addr[31 -: 5] == 5'b11111) begin
-            bridge_rd_data = cmd_bridge_rd_data;
-        end
-
-        if(bridge_addr == 32'h00100000) begin
-            bridge_rd_data = 32'(dip_switches);
-        end
-
-        if(hs_selected) begin
-            bridge_rd_data = hs_rd_data;
-        end
-    end
-    */
-
-    always_ff @(posedge clk_74a) begin
-        if(bridge_out[DIP].wr && (bridge_out[DIP].addr == 32'h00100000)) begin
-            dip_switches <= jailbreak::dip_switch_t'(bridge_out[DIP].wr_data);
-        end
-    end
-
-    always_comb begin
-        bridge_out[DIP].rd_data = 32'(dip_switches);
-    end
-
-    //
-    // host/target command handler
-    //
-    // driven by host commands, can be used as core-wide reset
-    wire            reset_n;
-    wire            pll_core_locked;
-
-    // bridge host commands
-    // synchronous to clk_74a
-    wire            status_boot_done = pll_core_locked;
-    wire            status_setup_done = pll_core_locked; // rising edge triggers a target command
-    wire            status_running = reset_n; // we are running as soon as reset_n goes high
-
-    wire            dataslot_requestread;
-    wire    [15:0]  dataslot_requestread_id;
-    wire            dataslot_requestread_ack = 1;
-    wire            dataslot_requestread_ok = 1;
-
-    wire            dataslot_requestwrite;
-    wire    [15:0]  dataslot_requestwrite_id;
-    wire    [31:0]  dataslot_requestwrite_size;
-    wire            dataslot_requestwrite_ack = 1;
-    wire            dataslot_requestwrite_ok = 1;
-
-    wire            dataslot_update;
-    wire    [15:0]  dataslot_update_id;
-    wire    [31:0]  dataslot_update_size;
-
-    wire            dataslot_allcomplete;
-
-    wire     [31:0] rtc_epoch_seconds;
-    wire     [31:0] rtc_date_bcd;
-    wire     [31:0] rtc_time_bcd;
-    wire            rtc_valid;
-
-    wire            savestate_supported;
-    wire    [31:0]  savestate_addr;
-    wire    [31:0]  savestate_size;
-    wire    [31:0]  savestate_maxloadsize;
-
-    wire            savestate_start;
-    wire            savestate_start_ack;
-    wire            savestate_start_busy;
-    wire            savestate_start_ok;
-    wire            savestate_start_err;
-
-    wire            savestate_load;
-    wire            savestate_load_ack;
-    wire            savestate_load_busy;
-    wire            savestate_load_ok;
-    wire            savestate_load_err;
-
-    wire            osnotify_inmenu;
-
-    // bridge target commands
-    // synchronous to clk_74a
-
-    reg             target_dataslot_read;
-    reg             target_dataslot_write;
-
-    wire            target_dataslot_ack;
-    wire            target_dataslot_done;
-    wire    [2:0]   target_dataslot_err;
-
-    reg     [15:0]  target_dataslot_id;
-    reg     [31:0]  target_dataslot_slotoffset;
-    reg     [31:0]  target_dataslot_bridgeaddr;
-    reg     [31:0]  target_dataslot_length;
-
-    // bridge data slot access
-    // synchronous to clk_74a
-
-    wire    [9:0]   datatable_addr;
-    wire            datatable_wren;
-    wire    [31:0]  datatable_data;
-    wire    [31:0]  datatable_q;
-
-    core_bridge_cmd icb (
-
-        .clk                ( clk_74a ),
-        .reset_n            ( reset_n ),
-
-        .bridge_endian_little   ( bridge_endian_little ),
-        .bridge_addr            ( cmd_bridge_addr ),
-        .bridge_rd              ( cmd_bridge_rd ),
-        .bridge_rd_data         ( cmd_bridge_rd_data ),
-        .bridge_wr              ( cmd_bridge_wr ),
-        .bridge_wr_data         ( cmd_bridge_wr_data ),
-
-        .status_boot_done       ( status_boot_done ),
-        .status_setup_done      ( status_setup_done ),
-        .status_running         ( status_running ),
-
-        .dataslot_requestread       ( dataslot_requestread ),
-        .dataslot_requestread_id    ( dataslot_requestread_id ),
-        .dataslot_requestread_ack   ( dataslot_requestread_ack ),
-        .dataslot_requestread_ok    ( dataslot_requestread_ok ),
-
-        .dataslot_requestwrite      ( dataslot_requestwrite ),
-        .dataslot_requestwrite_id   ( dataslot_requestwrite_id ),
-        .dataslot_requestwrite_size ( dataslot_requestwrite_size ),
-        .dataslot_requestwrite_ack  ( dataslot_requestwrite_ack ),
-        .dataslot_requestwrite_ok   ( dataslot_requestwrite_ok ),
-
-        .dataslot_update            ( dataslot_update ),
-        .dataslot_update_id         ( dataslot_update_id ),
-        .dataslot_update_size       ( dataslot_update_size ),
-
-        .dataslot_allcomplete   ( dataslot_allcomplete ),
-
-        .rtc_epoch_seconds      ( rtc_epoch_seconds ),
-        .rtc_date_bcd           ( rtc_date_bcd ),
-        .rtc_time_bcd           ( rtc_time_bcd ),
-        .rtc_valid              ( rtc_valid ),
-
-        .savestate_supported    ( savestate_supported ),
-        .savestate_addr         ( savestate_addr ),
-        .savestate_size         ( savestate_size ),
-        .savestate_maxloadsize  ( savestate_maxloadsize ),
-
-        .savestate_start        ( savestate_start ),
-        .savestate_start_ack    ( savestate_start_ack ),
-        .savestate_start_busy   ( savestate_start_busy ),
-        .savestate_start_ok     ( savestate_start_ok ),
-        .savestate_start_err    ( savestate_start_err ),
-
-        .savestate_load         ( savestate_load ),
-        .savestate_load_ack     ( savestate_load_ack ),
-        .savestate_load_busy    ( savestate_load_busy ),
-        .savestate_load_ok      ( savestate_load_ok ),
-        .savestate_load_err     ( savestate_load_err ),
-
-        .osnotify_inmenu        ( osnotify_inmenu ),
-
-        .target_dataslot_read       ( target_dataslot_read ),
-        .target_dataslot_write      ( target_dataslot_write ),
-
-        .target_dataslot_ack        ( target_dataslot_ack ),
-        .target_dataslot_done       ( target_dataslot_done ),
-        .target_dataslot_err        ( target_dataslot_err ),
-
-        .target_dataslot_id         ( target_dataslot_id ),
-        .target_dataslot_slotoffset ( target_dataslot_slotoffset ),
-        .target_dataslot_bridgeaddr ( target_dataslot_bridgeaddr ),
-        .target_dataslot_length     ( target_dataslot_length ),
-
-        .datatable_addr         ( datatable_addr ),
-        .datatable_wren         ( datatable_wren ),
-        .datatable_data         ( datatable_data ),
-        .datatable_q            ( datatable_q )
-
+        .core_ready_to_run,
+        .core_debug_event_log,
+        .core_dataslot_read,
+        .core_dataslot_write,
+        .core_dataslot_flush,
+        .core_get_dataslot_filename,
+        .core_open_dataslot_file
     );
 
-    logic processor_halt;
+    always_comb begin
+        host_dataslot_request_read.tie_off();
+        host_dataslot_request_write.tie_off();
+        host_dataslot_update.tie_off();
+        host_dataslot_complete.tie_off();
+        host_rtc_update.tie_off();
+        host_savestate_start_query.tie_off();
+        host_savestate_load_query.tie_off();
+        host_notify_cartridge.tie_off();
+        host_notify_display_mode.tie_off();
+
+        //core_status = bridge_pkg::host_request_status_result_default(pll_core_locked, reset_n, 1'b0);
+        //core_ready_to_run.tie_off();
+        core_debug_event_log.tie_off();
+        core_dataslot_read.tie_off();
+        core_dataslot_write.tie_off();
+        core_dataslot_flush.tie_off();
+        core_get_dataslot_filename.tie_off();
+        core_open_dataslot_file.tie_off();
+    end
 
     jailbreak_core jb_core (
-
         .clk_74a,
-        .reset_n,
 
-        .pll_core_locked,
+        .bridge_rom        (bridge_out[ROM]),
+        .bridge_dip        (bridge_out[DIP]),
+        .bridge_hs         (bridge_out[HS]),
+
+        .reset_n,
+        .in_menu,
+
+        .core_status,
+        .core_ready_to_run,
 
         .video,
+        .audio,
 
-        .bridge (bridge_out[ROM]),
-
+        /*
         .datatable_addr,
         .datatable_data,
         .datatable_wren,
@@ -404,19 +281,9 @@ module user_top (
         .target_dataslot_slotoffset,
         .target_dataslot_bridgeaddr,
         .target_dataslot_length,
-
-        .processor_halt,
-
-        .audio,
+        */
 
         .controller_key    (controller[1].key),
-
-        .dip_switches,
-
-        .pause             (osnotify_inmenu),
-
-        .hs_selected,
-        .hs_rd_data
     );
 
 endmodule

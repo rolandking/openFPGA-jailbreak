@@ -18,4 +18,5 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/Jailbreak.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_pkg.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_core.sv
 #set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_hs.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_dip.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/user_top.sv
