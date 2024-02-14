@@ -55,6 +55,23 @@ module jailbreak_core(
     logic clk_12_288_mhz;
     logic pll_core_locked;
 
+    bridge_if #(
+        .data_width(8)
+    )test1(
+        .clk(clk_74a)
+    );
+
+    bridge_if #(
+        .data_width(8)
+    )test2(
+        .clk(clk_48_660mhz)
+    );
+
+    bridge_cdc testtest (
+        .in     (test1),
+        .out    (test2)
+    );
+
     mf_pllbase mp1 (
         .refclk         ( clk_74a ),
         .rst            ( 0 ),
@@ -86,7 +103,7 @@ module jailbreak_core(
     );
 
     jailbreak::dip_switch_t dip_switches;
-    jailbreak_dip(
+    jailbreak_dip jdip(
         .bridge       (bridge_dip),
         .dip_switches
     );
@@ -174,15 +191,15 @@ module jailbreak_core(
         .address_width(8),
         .data_width($bits(rom_data_t))
     ) rom_data_fifo(
-        .write_clk       (mem.clk),
-        .write_data      (rom_data_in),
-        .write_valid     (mem.wr),
-        .write_ready     (),
+        .wr_clk         (mem.clk),
+        .wr_data        (rom_data_in),
+        .wr             (mem.wr),
+        .wr_ready       (),
 
-        .read_clk        (clk_48_660mhz),
-        .read_data       (rom_data_out),
-        .read_valid      (rom_data_valid),
-        .read_ack        ('1)
+        .rd_clk         (clk_48_660mhz),
+        .rd_data        (rom_data_out),
+        .rd             (rom_data_valid),
+        .rd_ack         ('1)
     );
 
     logic processor_halt, pause;
@@ -311,13 +328,15 @@ module jailbreak_core(
 
     logic [15:0] sound_clk_74a;
     // bring sound back into the I2S clock domain
-    cdc_buffer i2s_cdc(
-        .write_clk   (clk_48_660mhz),
-        .write_data  (sound),
-        .write_en    (1'b1),
+    cdc_buffer#(
+        .data_width  (16)
+    ) i2s_cdc (
+        .wr_clk      (clk_48_660mhz),
+        .wr_data     (sound),
+        .wr          (1'b1),
 
-        .read_clk    (clk_12_288_mhz),
-        .read_data   (sound_clk_74a)
+        .rd_clk      (clk_12_288_mhz),
+        .rd_data     (sound_clk_74a)
     );
 
     // every 4 cycles of clk_12_288_mhz we shift

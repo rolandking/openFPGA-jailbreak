@@ -283,7 +283,7 @@ module user_top (
         .target_dataslot_length,
         */
 
-        .controller_key    (controller[1].key),
+        .controller_key    (controller[1].key)
     );
 
 endmodule
