@@ -13,7 +13,7 @@ module jailbreak_dip(
     always @(posedge bridge.clk) begin
         bridge.rd_data <= dip_switches;
         if(bridge.wr) begin
-            dip_switch_state <= bridge.wr_data;
+            dip_switch_state <= jailbreak::dip_switch_t'(bridge.wr_data);
         end
     end
 
