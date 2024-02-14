@@ -158,48 +158,30 @@ module jailbreak_core(
 
     end
 
+    // cross the rom bridge into the fast clock domain
+    bridge_if #(
+        .data_width(32)
+    ) bridge_rom_cdc (
+        .clk (clk_48_660mhz)
+    );
+
+    bridge_cdc rom_cdc(
+        .in   (bridge_rom),
+        .out  (bridge_rom_cdc)
+    );
+
     bridge_if#(
         .data_width(8)
     ) mem (
-        .clk  (bridge_rom.clk)
+        .clk (bridge_rom_cdc.clk)
     );
 
     bridge_to_bytes#(
         .read_cycles      (2),
         .write_cycles     (2)
     ) b2b (
-        .bridge           (bridge_rom),
+        .bridge           (bridge_rom_cdc),
         .mem              (mem)
-    );
-
-    typedef struct packed {
-        logic [24:0] address;
-        logic [7:0]  data;
-    } rom_data_t;
-
-    rom_data_t rom_data_in, rom_data_out;
-    logic rom_data_valid;
-
-    always_comb begin
-        rom_data_in.address = mem.addr[24:0];
-        rom_data_in.data    = mem.wr_data;
-    end
-
-    // FIXME change this to a bridge fifo .. more generic
-    //       then add the bridge_to_bytes on the end
-    cdc_fifo#(
-        .address_width(8),
-        .data_width($bits(rom_data_t))
-    ) rom_data_fifo(
-        .wr_clk         (mem.clk),
-        .wr_data        (rom_data_in),
-        .wr             (mem.wr),
-        .wr_ready       (),
-
-        .rd_clk         (clk_48_660mhz),
-        .rd_data        (rom_data_out),
-        .rd             (rom_data_valid),
-        .rd_ack         ('1)
     );
 
     logic processor_halt, pause;
@@ -282,9 +264,9 @@ module jailbreak_core(
         .video_g,
         .video_b,
 
-        .ioctl_addr         (rom_data_out.address),
-        .ioctl_data         (rom_data_out.data),
-        .ioctl_wr           (rom_data_valid),
+        .ioctl_addr         (mem.addr),
+        .ioctl_data         (mem.wr_data),
+        .ioctl_wr           (mem.wr),
 
         .pause              (pause || processor_halt),
 
