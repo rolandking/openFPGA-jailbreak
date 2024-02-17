@@ -88,7 +88,7 @@ module user_top (
     audio_if                audio,
 
     output  logic           bridge_endian_little,
-    bridge_if               bridge,
+    bus_if                  bridge,
 
     ///////////////////////////////////////////////////
     // controller data
@@ -124,7 +124,10 @@ module user_top (
 );
 
     localparam int NUM_LEAVES = 6;
-    bridge_if bridge_out[NUM_LEAVES](.clk(clk_74a));
+    bus_if#(
+        .addr_width (32),
+        .data_width (32)
+    ) bridge_out[NUM_LEAVES](.clk(clk_74a));
 
     localparam pocket::bridge_addr_range_t range_all[NUM_LEAVES] = '{
         '{from_addr : 32'hf8000000, to_addr : 32'hf8001fff},

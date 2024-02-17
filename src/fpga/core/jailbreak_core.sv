@@ -4,9 +4,9 @@ module jailbreak_core(
 
     input wire           clk_74a,
 
-    bridge_if            bridge_rom,
-    bridge_if            bridge_dip,
-    bridge_if            bridge_hs,
+    bus_if               bridge_rom,
+    bus_if               bridge_dip,
+    bus_if               bridge_hs,
 
     input logic          reset_n,
     input logic          in_menu,
@@ -54,23 +54,6 @@ module jailbreak_core(
     logic clk_48_660mhz_90degrees;
     logic clk_12_288_mhz;
     logic pll_core_locked;
-
-    bridge_if #(
-        .data_width(8)
-    )test1(
-        .clk(clk_74a)
-    );
-
-    bridge_if #(
-        .data_width(8)
-    )test2(
-        .clk(clk_48_660mhz)
-    );
-
-    bridge_cdc testtest (
-        .in     (test1),
-        .out    (test2)
-    );
 
     mf_pllbase mp1 (
         .refclk         ( clk_74a ),
@@ -159,8 +142,9 @@ module jailbreak_core(
     end
 
     // cross the rom bridge into the fast clock domain
-    bridge_if #(
-        .data_width(32)
+    bus_if #(
+        .addr_width  (32),
+        .data_width (32)
     ) bridge_rom_cdc (
         .clk (clk_48_660mhz)
     );
@@ -170,16 +154,14 @@ module jailbreak_core(
         .out  (bridge_rom_cdc)
     );
 
-    bridge_if#(
+    bus_if#(
+        .addr_width(32),
         .data_width(8)
     ) mem (
         .clk (bridge_rom_cdc.clk)
     );
 
-    bridge_to_bytes#(
-        .read_cycles      (2),
-        .write_cycles     (2)
-    ) b2b (
+    bridge_to_bytes b2b (
         .bridge           (bridge_rom_cdc),
         .mem              (mem)
     );

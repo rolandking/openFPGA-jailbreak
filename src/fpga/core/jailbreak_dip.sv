@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 module jailbreak_dip(
-    bridge_if                      bridge,
+    bus_if                         bridge,
     output jailbreak::dip_switch_t dip_switches
 );
 
@@ -11,7 +11,8 @@ module jailbreak_dip(
     jailbreak::dip_switch_t dip_switch_state = jailbreak::dip_switch_default;
 
     always @(posedge bridge.clk) begin
-        bridge.rd_data <= dip_switches;
+        bridge.rd_data       <= dip_switches;
+        bridge.rd_data_valid <= bridge.rd;
         if(bridge.wr) begin
             dip_switch_state <= jailbreak::dip_switch_t'(bridge.wr_data);
         end
