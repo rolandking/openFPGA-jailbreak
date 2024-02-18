@@ -2,38 +2,28 @@
 
 module jailbreak_core(
 
-    input wire           clk_74a,
+    input wire                                      clk_74a,
 
-    bus_if               bridge_rom,
-    bus_if               bridge_dip,
-    bus_if               bridge_hs,
+    bus_if                                          bridge_rom,
+    bus_if                                          bridge_dip,
+    bus_if                                          bridge_hs,
 
-    input logic          reset_n,
-    input logic          in_menu,
+    bus_if                                          bridge_dataslot_in,
+    bus_if                                          bridge_dataslot_out,
+
+    input logic                                     reset_n,
+    input logic                                     in_menu,
 
     output bridge_pkg::host_request_status_result_e core_status,
-    core_ready_to_run_if core_ready_to_run,
+    core_ready_to_run_if                            core_ready_to_run,
 
-    video_if             video,
-    audio_if             audio,
+    host_dataslot_request_write_if                  host_dataslot_request_write,
+    core_dataslot_read_if                           core_dataslot_read,
 
-    /*
-    .datatable_addr,
-    .datatable_data,
-    .datatable_wren,
-    .datatable_q,
+    video_if                                        video,
+    audio_if                                        audio,
 
-    .target_dataslot_read,       // rising edge triggered
-    .target_dataslot_write,
-    .target_dataslot_ack,        // asserted upon command start until completion
-
-    .target_dataslot_id,         // parameters for each of the read/reload/write commands
-    .target_dataslot_slotoffset,
-    .target_dataslot_bridgeaddr,
-    .target_dataslot_length,
-    */
-
-    input pocket::key_t controller_key
+    input pocket::key_t                             controller_key
 );
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -173,6 +163,26 @@ module jailbreak_core(
         // FIXME: should come out of jailbreak_hs
         processor_halt = '0;
     end
+
+    jailbreak_hs hs(
+
+        .bridge_hs,
+
+        .bridge_dataslot_in,
+        .bridge_dataslot_out,
+
+        .host_dataslot_request_write,
+        .core_dataslot_read,
+
+        // for the JB core access
+        .jb_core_clk         (clk_48_660mhz),
+
+        .hs_address,
+        .hs_access_write,
+        .hs_write_enable,
+        .hs_data_in,
+        .hs_data_out
+    );
 
     /*
     jailbreak_hs jb_hs(

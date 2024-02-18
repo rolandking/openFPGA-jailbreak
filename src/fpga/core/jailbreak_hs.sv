@@ -6,277 +6,236 @@
         0x1620 + 0x50 bytes and
         0x157e + 0x03 bytes
         `
+    header
+    00 00 00 00 00 FF 00 02
+    00 02 00 01 00 FF 02 00
+
+4 byte		START_WAIT          0x00000000
+2 byte		CHECK_WAIT          0x00ff
+2 byte		CHECK_HOLD          0x0002
+2 byte		WRITE_HOLD          0x0002
+2 byte		WRITE_REPEATCOUNT   0x0001
+2 byte		WRITE_REPEATWAIT    0x00ff
+1 byte		ACCESS_PAUSEPAD     0x02
+1 byte		CHANGEMASK          0x00
+
     00 00 16 20 00 50 00 11
     00 00 15 7E 00 03 00 30
 
+    Address: 0x00001620
+    Length:      0x0050
+    Start:         0x00
+    End:           0x11
+
+    Address: 0x0000157e
+    Length:      0x0003
+    Start:         0x00
+    End;           0x30
+
     the RAM is already enabled on bit 13 so the addresses we'll use are
     0x620+0x50 and 0x57e+0x03
+
+rols@Rols-MacBook-Pro rols.Jailbreak % hexdump -vC Jailbreak.nvm
+00000000  00 25 30 02 00 29 0c 23  00 21 40 01 01 11 1b 19  |.%0..).#.!@.....|
+00000010  00 18 50 01 02 11 11 11  00 15 10 01 03 1e 0c 1d  |..P.............|
+00000020  00 11 70 01 04 1e 0c 24  00 09 30 01 00 24 0c 19  |..p....$..0..$..|
+00000030  00 09 20 01 01 11 11 11  00 08 50 01 02 11 0c 16  |.. .......P.....|
+00000040  00 06 60 01 03 17 24 19  00 04 20 01 04 1f 1b 11  |..`...$... .....|
+00000050  00 25 30                                          |.%0|
+
 */
+
+/*
+ * the high scores are mapped at 0x1620 for 0x50 bytes
+ * map them in pocket at 0x10001620 + 0x50 to make it
+ * easier to map them.
+ *
+ * the check data is at 0x157e + 0x03 and should be
+ * 0x00 0x25 0x30
+ *
+ * catch the slot write for NVRAM, slot 2 and then intercept
+ * any reads to replace it with length 0x50
+ *
+ * if the written length was 0x00, do nothing
+ *
+ * wait until a read from 0x157e + 0x03 returns the signature
+ * then ask for a write of the NVRAM data
+ */
 
 module jailbreak_hs(
 
-    // for bridge data
-    input  wire         clk_74a,
-    // to trigger overwriting the slot entry
-    input  wire         reset_n,
-    input  wire[31:0]   bridge_addr,
-    input  wire[31:0]   bridge_wr_data,
-    input  wire         bridge_wr,
-    output logic [31:0] bridge_rd_data,
-    input  wire         bridge_rd,
+    bus_if                         bridge_hs,
 
-    // bridge addresses match our range
-    output wire         selected,
+    bus_if                         bridge_dataslot_in,
+    bus_if                         bridge_dataslot_out,
 
-    // connection to the datatable to overwrite the slot entry
-    output logic [9:0]  datatable_addr,
-    output logic [31:0] datatable_data,
-    output logic        datatable_wren,
-    input  wire  [31:0] datatable_q,
-
-    // connection to the bridge to start a read
-    output logic        target_dataslot_read,       // rising edge triggered
-    output logic        target_dataslot_write,
-    input  wire         target_dataslot_ack,        // asserted upon command start until completion
-
-    output logic [15:0] target_dataslot_id,         // parameters for each of the read/reload/write commands
-    output logic [31:0] target_dataslot_slotoffset,
-    output logic [31:0] target_dataslot_bridgeaddr,
-    output logic [31:0] target_dataslot_length,
-
-    output logic        processor_halt,
+    host_dataslot_request_write_if host_dataslot_request_write,
+    core_dataslot_read_if          core_dataslot_read,
 
     // for the JB core access
-    input  wire         jb_core_clk,
-    output wire [11:0]  hs_address,
-    output wire         hs_access_write,
-    output wire         hs_write_enable,
-    output wire [7:0]   hs_data_in,
-    input logic [7:0]   hs_data_out
+    input  wire                    jb_core_clk,
+    output wire [11:0]             hs_address,
+    output wire                    hs_access_write,
+    output wire                    hs_write_enable,
+    output wire [7:0]              hs_data_in,
+    input logic [7:0]              hs_data_out
 );
 
-    logic [31:0] mem_address;
-    logic [7:0]  mem_wr_data;
-    logic        mem_wr;
-    logic [7:0]  mem_rd_data;
-    logic        mem_rd;
-    logic        bridge_rd_ready;
+    // look for the size written to the hiscore dataslot
+    // and the memory location which keeps that size
 
-    /*
-     * we need 0x53 bytes so map them from
-     * 0x10000000 to 0x10000052
-     */
-    bridge_to_bytes#(
-        .fixed_bits       (32'h10000000),
-        .fixed_mask       (32'hffffff80),
-        .read_cycles      (16),              // need to domain cross two ways
-        .write_cycles     (2)
-    ) b2b (
-        .clk              (clk_74a),
-        .bridge_addr,
-        .bridge_wr_data,
-        .bridge_wr,
-        .bridge_rd_data,
-        .bridge_rd,
-        .bridge_rd_ready,
+    parameter logic[15:0] HISCORE_SLOT_ID = 16'd2;
+    parameter logic[31:0] HISCORE_SIZE    = 32'h50;
 
-        .mem_address,
-        .mem_wr_data,
-        .mem_wr,
-        .mem_rd_data,
-        .mem_rd,
+    // the start address to look for the signature
+    parameter logic[11:0] CHECK_ADDR      = 11'h57e;
+    parameter logic[23:0] CHECK_VALUE     = 24'h003025;
 
-        .selected
+    // the address of the memory location keeping
+    // the address of the HISCORE slot
+    pocket::bridge_addr_t slot_size_addr = '1;
+
+    // status flags for what has been discovered
+    logic slot_addr_found = '0;
+
+    // default to '1 as a missing file will mean host_dataslot_request_write is
+    // not issued
+    logic slot_size_zero  = '1;
+
+    bridge_pkg::dataslot_even_t dataslot_even;
+    always_comb dataslot_even = bridge_pkg::dataslot_even_t'(bridge_dataslot_in.wr_data);
+
+    // core clock domain
+
+    always @(posedge bridge_dataslot_in.clk) begin
+
+        if( host_dataslot_request_write.valid                            &&
+            host_dataslot_request_write.param.slot_id == HISCORE_SLOT_ID
+        ) begin
+            slot_size_zero  <= (host_dataslot_request_write.param.expected_size == '0);
+        end
+
+        if(
+            bridge_dataslot_in.addr[2:0] == '0       &&
+            bridge_dataslot_in.wr                    &&
+            dataslot_even.slot_id == HISCORE_SLOT_ID
+        ) begin
+            // the size is stored one memory address higher
+            slot_size_addr  <= {bridge_dataslot_in.addr[31:3], 3'b100};
+            slot_addr_found <= '1;
+        end
+    end
+
+    // JB clock domain
+    logic        hs_signature_found = 0;
+    logic [23:0] check_data         = '1;
+
+    bus_if#(
+        .data_width  (8),
+        .addr_width  (12)
+    ) hs_bus (
+        .clk (jb_core_clk)
     );
 
-    // cross the reads and writes to the other clock domain
-    // we only need the bottom 7 bits of the address
-
-    typedef struct packed {
-        logic [6:0] address;
-        logic [7:0] data;
-        logic       is_write;
-    } mem_access_t;
-
-    mem_access_t mem_access_in;
+    logic       hs_bus_rd_ff  = 0;
+    logic [5:0] check_offsets = 6'b100100;
+    logic [1:0] check_offset;
 
     always_comb begin
-        mem_access_in.address  = mem_address[6:0];
-        mem_access_in.data     = mem_wr_data;
-        mem_access_in.is_write = mem_wr;
+        check_offset = check_offsets[1:0];
     end
 
-    mem_access_t mem_access_out;
-    logic        mem_access_out_valid;
+    always_ff @(posedge jb_core_clk) begin
 
-    cdc_fifo #(
-        .address_width(4),
-        .data_width($bits(mem_access_t))
-    ) hs_data_to_jb_core (
-        .write_clk      (clk_74a),
-        .write_data     (mem_access_in),
-        .write_valid    (mem_rd || mem_wr),
-        .write_ready    (),
+        // rotate the offsets
+        check_offsets <= {check_offsets[3:0], check_offsets[5:4]};
 
-        .read_clk       (jb_core_clk),
-        .read_data      (mem_access_out),
-        .read_valid     (mem_access_out_valid),
-        .read_ack       ('1)
+        // collect the data - this will be off by one
+        // cycle so data[0]->check[1], so compare with
+        // a signature which is rotated
+        if(!hs_signature_found) begin
+            check_data[check_offset * 8 +: 8] <= hs_data_out;
+        end
+
+        if(check_data == CHECK_VALUE) begin
+            hs_signature_found <= '1;
+        end
+
+        hs_bus_rd_ff <= hs_bus.rd;
+    end
+
+    // cross the hs bridge into the fast domain
+    bus_if#(
+        .addr_width (32),
+        .data_width (32)
+    ) bridge_hs_cdc(
+        .clk  (jb_core_clk)
     );
 
-    logic [31:0] hs1_address, hs2_address;
-    logic        hs1_selected, hs2_selected;
-
-    // map 0x00000000-0x0000004f to 0x620-0x66f
-    remapper #(
-        .BASE_ADDRESS       (32'h00000000),
-        .MAP_ADDRESS        (32'h00000620),
-        .MAP_LENGTH         (16'h50)
-    ) hs1_remap (
-        .raw_address        (mem_access_out.address),
-        .selected           (hs1_selected),
-        .mapped_address     (hs1_address)
+    bridge_cdc(
+        .in    (bridge_hs),
+        .out   (bridge_hs_cdc)
     );
 
-    // map 0x10000050-0x00000052 to 0x57e-0x580
-    remapper #(
-        .BASE_ADDRESS       (32'h00000050),
-        .MAP_ADDRESS        (32'h0000057e),
-        .MAP_LENGTH         (16'h3)
-    ) hs2_remap  (
-        .raw_address        (mem_access_out.address),
-        .selected           (hs2_selected),
-        .mapped_address     (hs2_address)
+    bridge_to_bytes(
+        .bridge (bridge_hs_cdc),
+        .mem    (hs_bus)
     );
 
     always_comb begin
-        hs_address  = hs1_selected ? hs1_address[11:0] : hs2_address[11:0];
+        hs_bus.rd_data  = hs_data_out;
+
+        if(hs_signature_found) begin
+            // connect the memory to the bus
+            hs_address           = hs_bus.addr;
+            hs_data_in           = hs_bus.wr_data;
+            hs_access_write      = hs_bus.wr;
+            hs_write_enable      = hs_bus.wr;
+            hs_bus.rd_data_valid = hs_bus_rd_ff;
+        end else begin
+            hs_address           = CHECK_ADDR + check_offset;
+            hs_data_in           = 'x;
+            hs_access_write      = '0;
+            hs_write_enable      = '0;
+            hs_bus.rd_data_valid = '0;
+        end
     end
 
-    always_comb begin
-        hs_data_in      = mem_access_out.data;
-        hs_access_write = mem_access_out_valid && mem_access_out.is_write;
-        hs_write_enable = mem_access_out_valid && mem_access_out.is_write;
-    end
+    bidir_oneway#(.width(32)) bio_addr    (.in(bridge_dataslot_in.addr),    .out(bridge_dataslot_out.addr   ));
+    bidir_oneway#(.width(32)) bio_wr_data (.in(bridge_dataslot_in.wr_data), .out(bridge_dataslot_out.wr_data));
+    bidir_oneway#(.width(1) ) bio_rd_data (.in(bridge_dataslot_in.wr),      .out(bridge_dataslot_out.wr     ));
+    bidir_oneway#(.width(1) ) bio_rd      (.in(bridge_dataslot_in.rd),      .out(bridge_dataslot_out.rd     ));
 
-    // reads take one cycle
-    logic mem_access_out_valid_ff;
-    always @(posedge jb_core_clk) begin
-        mem_access_out_valid_ff <= mem_access_out_valid;
-    end
-
-    // buffer the read data back. Reads take one cycle
-    cdc_buffer hs_read_to_74a(
-        .write_clk         (jb_core_clk),
-        .write_data        (hs_data_out),
-        .write_en          (mem_access_out_valid_ff),
-
-        .read_clk          (clk_74a),
-        .read_data         (mem_rd_data)
+    bidir_oneway#(
+        .width(1)
+    ) bio_rd_dv (
+        .in   (bridge_dataslot_out.rd_data_valid),
+        .out  (bridge_dataslot_in.rd_data_valid )
     );
 
-
-    /*
-     *  defer writing the high score table until the CPU has
-     *  started and written the defaults.
-     *
-     *  stay idle until the core resets and starts, then
-     *  read the slot for the game save, if it's zero sized
-     *  there was none - rewrite the size only
-     *  else wait for some cycles, pause the CPU and start
-     *  a load of the slot
-     *  when the load is done unpause the core
-     */
-
-     typedef enum logic[2:0] {
-        IDLE        = 3'd0,
-        CHECK_SIZE  = 3'd1,
-        START_WRITE = 3'd2,
-        START_READ  = 3'd3,
-        WAIT_OP     = 3'd4,
-        DONE        = 3'd5
-     } state_t;
-
-    // we only care about one single slot
     always_comb begin
-        datatable_addr             = 10'd5;
-        datatable_data             = 32'd83;
-        target_dataslot_id         = 16'd2;
-        target_dataslot_bridgeaddr = 32'h10000000;
-        target_dataslot_slotoffset = 32'd0;
-        target_dataslot_length     = 32'd83;
+        bridge_dataslot_in.rd_data =
+            (bridge_dataslot_out.addr == slot_size_addr) ? HISCORE_SIZE : bridge_dataslot_out.rd_data;
     end
 
-    state_t state = IDLE;
-
-    always_comb begin
-        target_dataslot_read  = 1'b0;
-        target_dataslot_write = 1'b0;
-        processor_halt        = 1'b0;
-        case(state)
-            IDLE, DONE: begin
-            end
-            CHECK_SIZE: begin
-                processor_halt = 1'b1;
-            end
-            START_READ: begin
-                processor_halt = 1'b1;
-                target_dataslot_read = 1'b1;
-            end
-            START_WRITE: begin
-                processor_halt = 1'b1;
-                target_dataslot_write = 1'b1;
-            end
-            WAIT_OP: begin
-                processor_halt = 1'b1;
-            end
-            default: begin
-            end
-        endcase
-    end
-
-    logic [31:0] wait_counter;
-
-    always_ff @(posedge clk_74a) begin
-        case(state)
-            IDLE: begin
-                if(reset_n) begin
-                    if(wait_counter == '0) begin
-                        state <= CHECK_SIZE;
-                    end else begin
-                        wait_counter <= wait_counter - 20'd1;
-                    end
-                end else begin
-                    wait_counter <= 32'h8d24d00 * 4;
-                end
-            end
-            DONE: begin
-            end
-            CHECK_SIZE: begin
-                if(datatable_q == '0) begin
-                    state <= START_WRITE;
-                end else begin
-                    state <= START_READ;
-                end
-            end
-            START_READ, START_WRITE: begin
-                state <= WAIT_OP;
-            end
-            WAIT_OP: begin
-                if(target_dataslot_ack) begin
-                    state <= DONE;
-                end
-            end
-            default: begin
-            end
-        endcase
-    end
-
-    // write the data slot as we come out of reset
-    edge_detect reset_edge (
-        .clk       (clk_74a),
-        .in        (reset_n),
-        .out       (datatable_wren)
+    // move the signature ready signal into the bridge clock domain
+    logic hs_signature_found_bridge;
+    cdc_sync#(
+        .num_bits  (1)
+    ) hssig_cdc (
+        .from_clk    (jb_core_clk),
+        .from_data   (hs_signature_found),
+        .to_clk      (bridge_hs.clk),
+        .to_data     (hs_signature_found_bridge)
     );
+
+    typedef enum logic[1:0] {
+        WAIT_SLOT      = 2'b00,
+        WAIT_SIGNATURE = 2'b01,
+        WRITE_DATA     = 2'b10,
+        IDLE           = 2'b11
+    } state_e;
+
+    state_e state = WAIT_SLOT;
 
 endmodule

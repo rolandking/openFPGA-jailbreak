@@ -25,11 +25,12 @@
                 "name": "NVRAM",
                 "id": 2,
                 "required": false,
-                "parameters": "0x84",
+                "parameters": "0x04",
                 "nonvolatile": true,
                 "extensions": ["nvm"],
-                "exact_size" : 83,
-                "address": "0x10000000"
+                "exact_size" : 80,
+                "deferload" : true,
+                "address": "0x10001620"
             }
         ]
     }

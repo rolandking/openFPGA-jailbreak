@@ -135,7 +135,7 @@ module user_top (
         '{from_addr : 32'hf8002380, to_addr : 32'hf80023ff},
         '{from_addr : 32'h00000000, to_addr : 32'h000fffff},
         '{from_addr : 32'h00100000, to_addr : 32'h00100000},
-        '{from_addr : 32'h10000000, to_addr : 32'h10000052}
+        '{from_addr : 32'h10001620, to_addr : 32'h1000166f}
     };
 
     bridge_master #(
@@ -150,8 +150,8 @@ module user_top (
 
     typedef enum int {
         CMD      = 0,
-        ID       = 1,
-        DATASLOT = 2,
+        DATASLOT = 1,
+        ID       = 2,
         ROM      = 3,
         DIP      = 4,
         HS       = 5
@@ -206,10 +206,17 @@ module user_top (
     core_get_dataslot_filename_if            core_get_dataslot_filename();
     core_open_dataslot_file_if               core_open_dataslot_file();
 
+    bus_if#(
+        .addr_width (32),
+        .data_width (32)
+    ) bridge_dataslot_adjusted (
+        .clk  (bridge.clk)
+    );
+
     bridge_core bc(
         .bridge_cmd                        (bridge_out[CMD]),
         .bridge_id                         (bridge_out[ID]),
-        .bridge_dataslot                   (bridge_out[DATASLOT]),
+        .bridge_dataslot                   (bridge_dataslot_adjusted),
         .core_status,
         .reset_n,
         .host_dataslot_request_read,
@@ -257,9 +264,12 @@ module user_top (
     jailbreak_core jb_core (
         .clk_74a,
 
-        .bridge_rom        (bridge_out[ROM]),
-        .bridge_dip        (bridge_out[DIP]),
-        .bridge_hs         (bridge_out[HS]),
+        .bridge_rom           (bridge_out[ROM]),
+        .bridge_dip           (bridge_out[DIP]),
+        .bridge_hs            (bridge_out[HS]),
+
+        .bridge_dataslot_in   (bridge_out[DATASLOT]),
+        .bridge_dataslot_out  (bridge_dataslot_adjusted),
 
         .reset_n,
         .in_menu,
@@ -267,26 +277,13 @@ module user_top (
         .core_status,
         .core_ready_to_run,
 
+        .host_dataslot_request_write,
+        .core_dataslot_read,
+
         .video,
         .audio,
 
-        /*
-        .datatable_addr,
-        .datatable_data,
-        .datatable_wren,
-        .datatable_q,
-
-        .target_dataslot_read,       // rising edge triggered
-        .target_dataslot_write,
-        .target_dataslot_ack,        // asserted upon command start until completion
-
-        .target_dataslot_id,         // parameters for each of the read/reload/write commands
-        .target_dataslot_slotoffset,
-        .target_dataslot_bridgeaddr,
-        .target_dataslot_length,
-        */
-
-        .controller_key    (controller[1].key)
+        .controller_key       (controller[1].key)
     );
 
 endmodule
