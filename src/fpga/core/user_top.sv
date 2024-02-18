@@ -255,7 +255,7 @@ module user_top (
         //core_ready_to_run.tie_off();
         core_debug_event_log.tie_off();
         core_dataslot_read.tie_off();
-        core_dataslot_write.tie_off();
+        //core_dataslot_write.tie_off();
         core_dataslot_flush.tie_off();
         core_get_dataslot_filename.tie_off();
         core_open_dataslot_file.tie_off();
@@ -278,7 +278,7 @@ module user_top (
         .core_ready_to_run,
 
         .host_dataslot_request_write,
-        .core_dataslot_read,
+        .core_dataslot_write,
 
         .video,
         .audio,

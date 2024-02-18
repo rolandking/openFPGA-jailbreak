@@ -18,7 +18,7 @@ module jailbreak_core(
     core_ready_to_run_if                            core_ready_to_run,
 
     host_dataslot_request_write_if                  host_dataslot_request_write,
-    core_dataslot_read_if                           core_dataslot_read,
+    core_dataslot_write_if                          core_dataslot_write,
 
     video_if                                        video,
     audio_if                                        audio,
@@ -160,8 +160,6 @@ module jailbreak_core(
 
     always_comb begin
         pause = in_menu;
-        // FIXME: should come out of jailbreak_hs
-        processor_halt = '0;
     end
 
     jailbreak_hs hs(
@@ -172,7 +170,7 @@ module jailbreak_core(
         .bridge_dataslot_out,
 
         .host_dataslot_request_write,
-        .core_dataslot_read,
+        .core_dataslot_write,
 
         // for the JB core access
         .jb_core_clk         (clk_48_660mhz),
@@ -181,7 +179,9 @@ module jailbreak_core(
         .hs_access_write,
         .hs_write_enable,
         .hs_data_in,
-        .hs_data_out
+        .hs_data_out,
+
+        .processor_halt
     );
 
     /*

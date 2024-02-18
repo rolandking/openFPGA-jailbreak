@@ -10,14 +10,14 @@
     00 00 00 00 00 FF 00 02
     00 02 00 01 00 FF 02 00
 
-4 byte		START_WAIT          0x00000000
-2 byte		CHECK_WAIT          0x00ff
-2 byte		CHECK_HOLD          0x0002
-2 byte		WRITE_HOLD          0x0002
-2 byte		WRITE_REPEATCOUNT   0x0001
-2 byte		WRITE_REPEATWAIT    0x00ff
-1 byte		ACCESS_PAUSEPAD     0x02
-1 byte		CHANGEMASK          0x00
+4 byte START_WAIT          0x00000000
+2 byte CHECK_WAIT          0x00ff
+2 byte CHECK_HOLD          0x0002
+2 byte WRITE_HOLD          0x0002
+2 byte WRITE_REPEATCOUNT   0x0001
+2 byte WRITE_REPEATWAIT    0x00ff
+1 byte ACCESS_PAUSEPAD     0x02
+1 byte CHANGEMASK          0x00
 
     00 00 16 20 00 50 00 11
     00 00 15 7E 00 03 00 30
@@ -70,26 +70,29 @@ module jailbreak_hs(
     bus_if                         bridge_dataslot_out,
 
     host_dataslot_request_write_if host_dataslot_request_write,
-    core_dataslot_read_if          core_dataslot_read,
+    core_dataslot_write_if         core_dataslot_write,
 
     // for the JB core access
     input  wire                    jb_core_clk,
     output wire [11:0]             hs_address,
     output wire                    hs_access_write,
     output wire                    hs_write_enable,
-    output wire [7:0]              hs_data_in,
-    input logic [7:0]              hs_data_out
+    output wire  [7:0]             hs_data_in,
+    input  logic [7:0]             hs_data_out,
+
+    output logic                   processor_halt
 );
 
     // look for the size written to the hiscore dataslot
     // and the memory location which keeps that size
 
-    parameter logic[15:0] HISCORE_SLOT_ID = 16'd2;
-    parameter logic[31:0] HISCORE_SIZE    = 32'h50;
+    parameter logic[15:0] HISCORE_SLOT_ID     = 16'd2;
+    parameter logic[31:0] HISCORE_SIZE        = 32'h50;
+    parameter logic[31:0] HISCORE_BRIDGE_ADDR = 32'h00001620;
 
     // the start address to look for the signature
-    parameter logic[11:0] CHECK_ADDR      = 11'h57e;
-    parameter logic[23:0] CHECK_VALUE     = 24'h003025;
+    parameter logic[11:0] CHECK_ADDR          = 11'h57e;
+    parameter logic[23:0] CHECK_VALUE         = 24'h003025;
 
     // the address of the memory location keeping
     // the address of the HISCORE slot
@@ -237,5 +240,51 @@ module jailbreak_hs(
     } state_e;
 
     state_e state = WAIT_SLOT;
+
+    always @(posedge bridge_hs.clk) begin
+        case(state)
+            WAIT_SLOT: begin
+                if(slot_addr_found) begin
+                    state <= WAIT_SIGNATURE;
+                end
+            end
+            WAIT_SIGNATURE: begin
+                if(hs_signature_found_bridge) begin
+                    if(slot_size_zero) begin
+                        state <= IDLE;
+                    end else begin
+                        state <= WRITE_DATA;
+                    end
+                end
+            end
+            WRITE_DATA: begin
+                if(core_dataslot_write.done) begin
+                    state <= IDLE;
+                end
+            end
+            IDLE: begin
+            end
+            default: begin
+            end
+        endcase
+    end
+
+    always_comb begin
+        core_dataslot_write.param             = '0;
+        core_dataslot_write.param.slot_id     = HISCORE_SLOT_ID;
+        core_dataslot_write.param.bridge_addr = HISCORE_BRIDGE_ADDR;
+        core_dataslot_write.param.length      = HISCORE_SIZE;
+
+        core_dataslot_write.valid             = '0;
+        processor_halt                        = '0;
+        case(state)
+            WRITE_DATA: begin
+                core_dataslot_write.valid     = '1;
+                processor_halt                = '1;
+            end
+            default: begin
+            end
+        endcase
+    end
 
 endmodule
