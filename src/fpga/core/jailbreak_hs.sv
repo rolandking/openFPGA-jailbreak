@@ -70,7 +70,7 @@ module jailbreak_hs(
     bus_if                         bridge_dataslot_out,
 
     host_dataslot_request_write_if host_dataslot_request_write,
-    core_dataslot_write_if         core_dataslot_write,
+    core_dataslot_read_if          core_dataslot_read,
 
     // for the JB core access
     input  wire                    jb_core_clk,
@@ -88,7 +88,7 @@ module jailbreak_hs(
 
     parameter logic[15:0] HISCORE_SLOT_ID     = 16'd2;
     parameter logic[31:0] HISCORE_SIZE        = 32'h50;
-    parameter logic[31:0] HISCORE_BRIDGE_ADDR = 32'h00001620;
+    parameter logic[31:0] HISCORE_BRIDGE_ADDR = 32'h10001620;
 
     // the start address to look for the signature
     parameter logic[11:0] CHECK_ADDR          = 11'h57e;
@@ -112,7 +112,7 @@ module jailbreak_hs(
 
     always @(posedge bridge_dataslot_in.clk) begin
 
-        if( host_dataslot_request_write.valid                            &&
+        if( host_dataslot_request_write.valid &&
             host_dataslot_request_write.param.slot_id == HISCORE_SLOT_ID
         ) begin
             slot_size_zero  <= (host_dataslot_request_write.param.expected_size == '0);
@@ -235,7 +235,7 @@ module jailbreak_hs(
     typedef enum logic[1:0] {
         WAIT_SLOT      = 2'b00,
         WAIT_SIGNATURE = 2'b01,
-        WRITE_DATA     = 2'b10,
+        READ_DATA      = 2'b10,
         IDLE           = 2'b11
     } state_e;
 
@@ -253,12 +253,12 @@ module jailbreak_hs(
                     if(slot_size_zero) begin
                         state <= IDLE;
                     end else begin
-                        state <= WRITE_DATA;
+                        state <= READ_DATA;
                     end
                 end
             end
-            WRITE_DATA: begin
-                if(core_dataslot_write.done) begin
+            READ_DATA: begin
+                if(core_dataslot_read.done) begin
                     state <= IDLE;
                 end
             end
@@ -270,17 +270,17 @@ module jailbreak_hs(
     end
 
     always_comb begin
-        core_dataslot_write.param             = '0;
-        core_dataslot_write.param.slot_id     = HISCORE_SLOT_ID;
-        core_dataslot_write.param.bridge_addr = HISCORE_BRIDGE_ADDR;
-        core_dataslot_write.param.length      = HISCORE_SIZE;
+        core_dataslot_read.param             = '0;
+        core_dataslot_read.param.slot_id     = HISCORE_SLOT_ID;
+        core_dataslot_read.param.bridge_addr = HISCORE_BRIDGE_ADDR;
+        core_dataslot_read.param.length      = HISCORE_SIZE;
 
-        core_dataslot_write.valid             = '0;
-        processor_halt                        = '0;
+        core_dataslot_read.valid             = '0;
+        processor_halt                       = '0;
         case(state)
-            WRITE_DATA: begin
-                core_dataslot_write.valid     = '1;
-                processor_halt                = '1;
+            READ_DATA: begin
+                core_dataslot_read.valid     = '1;
+                processor_halt               = '1;
             end
             default: begin
             end

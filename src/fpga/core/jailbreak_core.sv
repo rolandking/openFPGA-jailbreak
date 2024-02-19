@@ -18,7 +18,7 @@ module jailbreak_core(
     core_ready_to_run_if                            core_ready_to_run,
 
     host_dataslot_request_write_if                  host_dataslot_request_write,
-    core_dataslot_write_if                          core_dataslot_write,
+    core_dataslot_read_if                           core_dataslot_read,
 
     video_if                                        video,
     audio_if                                        audio,
@@ -170,7 +170,7 @@ module jailbreak_core(
         .bridge_dataslot_out,
 
         .host_dataslot_request_write,
-        .core_dataslot_write,
+        .core_dataslot_read,
 
         // for the JB core access
         .jb_core_clk         (clk_48_660mhz),
@@ -183,44 +183,6 @@ module jailbreak_core(
 
         .processor_halt
     );
-
-    /*
-    jailbreak_hs jb_hs(
-        .clk_74a,
-
-        .reset_n,
-
-        .bridge_addr,
-        .bridge_wr_data,
-        .bridge_wr,
-        .bridge_rd_data   (hs_rd_data),
-        .bridge_rd,
-        .selected         (hs_selected),
-
-        .datatable_addr,
-        .datatable_wren,
-        .datatable_data,
-        .datatable_q,
-
-        .target_dataslot_read,
-        .target_dataslot_write,
-        .target_dataslot_ack,
-
-        .target_dataslot_id,
-        .target_dataslot_slotoffset,
-        .target_dataslot_bridgeaddr,
-        .target_dataslot_length,
-
-        .processor_halt,
-
-        .jb_core_clk      (video.rgb_clock),
-        .hs_address,
-        .hs_access_write,
-        .hs_write_enable,
-        .hs_data_in,
-        .hs_data_out
-    );
-    */
 
     Jailbreak jb_core(
         // reset pin is really ~reset
