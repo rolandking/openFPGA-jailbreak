@@ -1,4 +1,5 @@
 set_global_assignment -name SOURCE_TCL_SCRIPT_FILE ../../../bridge/build_id_gen.tcl
+set_global_assignment -name SYSTEMVERILOG_FILE output_files/id_pkg.sv
 set_global_assignment -name QIP_FILE ../../../svh/svh.qip
 set_global_assignment -name QIP_FILE ../../../pocket_pkg/pocket_pkg.qip
 set_global_assignment -name QIP_FILE ../../../apf/apf.qip
