@@ -1,13 +1,13 @@
-set_global_assignment -name SOURCE_TCL_SCRIPT_FILE ../../../bridge/build_id_gen.tcl
+set_global_assignment -name SOURCE_TCL_SCRIPT_FILE ../../pocket-base/bridge/build_id_gen.tcl
 set_global_assignment -name SYSTEMVERILOG_FILE output_files/id_pkg.sv
-set_global_assignment -name QIP_FILE ../../../svh/svh.qip
-set_global_assignment -name QIP_FILE ../../../pocket_pkg/pocket_pkg.qip
-set_global_assignment -name QIP_FILE ../../../apf/apf.qip
-set_global_assignment -name QIP_FILE ../../../core/core.qip
-set_global_assignment -name QIP_FILE ../../../bridge/bridge.qip
-set_global_assignment -name QIP_FILE ../../../loader/loader.qip
-set_global_assignment -name QIP_FILE ../../../cdc_fifo/cdc_fifo.qip
-set_global_assignment -name QIP_FILE ../../../utils/utils.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/svh/svh.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/pocket_pkg/pocket_pkg.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/apf/apf.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/core/core.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/bridge/bridge.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/loader/loader.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/cdc_fifo/cdc_fifo.qip
+set_global_assignment -name QIP_FILE ../../pocket-base/utils/utils.qip
 
 
 set_global_assignment -name QIP_FILE rtl/ram_rom/jailbreak_ram_rom.qip

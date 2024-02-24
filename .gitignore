@@ -1,0 +1,11 @@
+**/*.bak
+**/db
+**/incremental_db
+**/output_files
+**/c5_pin_model_dump.txt
+**/*_description.txt
+**/ROOT
+**/ROOT.zip
+**/*.rpt
+**/*.summary
+**/build_id.mif
