@@ -1,3 +1,6 @@
 [submodule "MiSTer"]
 	path = MiSTer
 	url = git@github.com:MiSTer-devel/Arcade-Jailbreak_MiSTer.git
+[submodule "pocket-base"]
+	path = pocket-base
+	url = git@github.com:rolandking/openFPGA-pocket-base.git
