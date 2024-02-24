@@ -1,0 +1,3 @@
+[submodule "MiSTer"]
+	path = MiSTer
+	url = git@github.com:MiSTer-devel/Arcade-Jailbreak_MiSTer.git
