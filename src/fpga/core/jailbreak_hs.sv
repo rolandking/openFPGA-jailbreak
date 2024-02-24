@@ -175,12 +175,12 @@ module jailbreak_hs(
         .clk  (jb_core_clk)
     );
 
-    bridge_cdc(
+    bridge_cdc bcdc(
         .in    (bridge_hs),
         .out   (bridge_hs_cdc)
     );
 
-    bridge_to_bytes(
+    bridge_to_bytes b2b(
         .bridge (bridge_hs_cdc),
         .mem    (hs_bus)
     );

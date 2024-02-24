@@ -14,8 +14,7 @@ module jailbreak_core(
     input logic                                     reset_n,
     input logic                                     in_menu,
 
-    output bridge_pkg::host_request_status_result_e core_status,
-    core_ready_to_run_if                            core_ready_to_run,
+    output logic                                    pll_core_locked,
 
     host_dataslot_request_write_if                  host_dataslot_request_write,
     core_dataslot_read_if                           core_dataslot_read,
@@ -43,7 +42,6 @@ module jailbreak_core(
     logic clk_48_660mhz;
     logic clk_48_660mhz_90degrees;
     logic clk_12_288_mhz;
-    logic pll_core_locked;
 
     mf_pllbase mp1 (
         .refclk         ( clk_74a ),
@@ -60,20 +58,7 @@ module jailbreak_core(
     always_comb begin
         video.rgb_clock    = clk_48_660mhz;
         video.rgb_clock_90 = clk_48_660mhz_90degrees;
-
-        core_status = bridge_pkg::host_request_status_result_default(
-            pll_core_locked,
-            reset_n,
-            1'b0
-        );
     end
-
-    core_ready_to_run crtr(
-        .bridge_clk       (bridge_rom.clk),
-        .pll_core_locked,
-        .reset_n,
-        .core_ready_to_run
-    );
 
     jailbreak::dip_switch_t dip_switches;
     jailbreak_dip jdip(

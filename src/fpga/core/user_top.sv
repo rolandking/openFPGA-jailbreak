@@ -206,6 +206,8 @@ module user_top (
     core_get_dataslot_filename_if            core_get_dataslot_filename();
     core_open_dataslot_file_if               core_open_dataslot_file();
 
+    logic pll_core_locked;
+
     bus_if#(
         .addr_width (32),
         .data_width (32)
@@ -250,9 +252,11 @@ module user_top (
         host_savestate_load_query.tie_off();
         host_notify_cartridge.tie_off();
         host_notify_display_mode.tie_off();
-
-        //core_status = bridge_pkg::host_request_status_result_default(pll_core_locked, reset_n, 1'b0);
-        //core_ready_to_run.tie_off();
+        core_status = bridge_pkg::host_request_status_result_default(
+            pll_core_locked,
+            reset_n,
+            1'b0
+        );
         core_debug_event_log.tie_off();
         //core_dataslot_read.tie_off();
         core_dataslot_write.tie_off();
@@ -260,6 +264,13 @@ module user_top (
         core_get_dataslot_filename.tie_off();
         core_open_dataslot_file.tie_off();
     end
+
+    core_ready_to_run crtr(
+        .bridge_clk       (bridge.clk),
+        .pll_core_locked,
+        .reset_n,
+        .core_ready_to_run
+    );
 
     jailbreak_core jb_core (
         .clk_74a,
@@ -274,8 +285,7 @@ module user_top (
         .reset_n,
         .in_menu,
 
-        .core_status,
-        .core_ready_to_run,
+        .pll_core_locked,
 
         .host_dataslot_request_write,
         .core_dataslot_read,
