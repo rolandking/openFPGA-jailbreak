@@ -1,3 +1,3 @@
-POCKET_TOOLS := ../../pocket-tools
+POCKET_TOOLS := ../openFPGA-pocket-base/TOOLS
 
 include $(POCKET_TOOLS)/Makefile.in
