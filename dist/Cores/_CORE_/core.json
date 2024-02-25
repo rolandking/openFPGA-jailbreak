@@ -2,13 +2,13 @@
     "core": {
         "magic": "APF_VER_1",
         "metadata": {
-            "platform_ids": ["testcode"],
+            "platform_ids": ["jailbreak"],
             "shortname": "Jailbreak",
-            "description": "Jailbreak port",
-            "author": "rols",
-            "url": "https://github.com/open-fpga/core-template",
-            "version": "1.0.0",
-            "date_release": "2023-12-19"
+            "description": "Jailbreak Arcade Game 1986",
+            "author": "rolandking",
+            "url": "https://github.com/rolandking/openFPGA-jailbreak",
+            "version": "1.0",
+            "date_release": "2024-02-25"
         },
         "framework": {
             "target_product": "Analogue Pocket",
