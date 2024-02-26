@@ -35,29 +35,28 @@ module jailbreak_core(
         x8 for the full clock is 48,660,480
 
         the clock on MiSTer runs at 49.152MHz which would
-        generate 60.60 Hz but has an underclock option which
-        reconfigs down to 48.660MHz. Use only that option
+        generates 60.60 Hz but has an underclock option which
+        reconfigs down to 48.660MHz. Do not use that option
     */
 
-    logic clk_48_660mhz;
-    logic clk_48_660mhz_90degrees;
+    logic clk_49_152mhz;
+    logic clk_49_152mhz_90degrees;
     logic clk_12_288_mhz;
 
     mf_pllbase mp1 (
         .refclk         ( clk_74a ),
         .rst            ( 0 ),
 
-        .outclk_0       ( clk_48_660mhz ),
-        .outclk_1       ( clk_48_660mhz_90degrees ),
-        .outclk_2       ( clk_12_288_mhz ),
+        .outclk_0       ( clk_49_152mhz ),
+        .outclk_1       ( clk_49_152mhz_90degrees ),
 
         .locked         ( pll_core_locked )
     );
 
 
     always_comb begin
-        video.rgb_clock    = clk_48_660mhz;
-        video.rgb_clock_90 = clk_48_660mhz_90degrees;
+        video.rgb_clock    = clk_49_152mhz;
+        video.rgb_clock_90 = clk_49_152mhz_90degrees;
     end
 
     jailbreak::dip_switch_t dip_switches;
@@ -121,7 +120,7 @@ module jailbreak_core(
         .addr_width  (32),
         .data_width (32)
     ) bridge_rom_cdc (
-        .clk (clk_48_660mhz)
+        .clk (clk_49_152mhz)
     );
 
     bridge_cdc rom_cdc(
@@ -158,7 +157,7 @@ module jailbreak_core(
         .core_dataslot_read,
 
         // for the JB core access
-        .jb_core_clk         (clk_48_660mhz),
+        .jb_core_clk         (clk_49_152mhz),
 
         .hs_address,
         .hs_access_write,
@@ -173,7 +172,7 @@ module jailbreak_core(
         // reset pin is really ~reset
         .reset              (reset_n),
 
-        .clk_49m            (clk_48_660mhz),  //Actual frequency: 48,660,480
+        .clk_49m            (clk_49_152mhz),  //Actual frequency: 48,660,480
         .coin               (coin_n),
         .btn_service        (btn_service_n),
         .btn_start          (btn_start_n),
@@ -247,41 +246,34 @@ module jailbreak_core(
         video.rgb  = video.de ? {video_r, 4'b0, video_g, 4'b0, video_b, 4'b0} : 24'b0;
      end
 
-    logic [15:0] sound_clk_74a;
-    // bring sound back into the I2S clock domain
-    cdc_buffer#(
-        .data_width  (16)
-    ) i2s_cdc (
-        .wr_clk      (clk_48_660mhz),
-        .wr_data     (sound),
-        .wr          (1'b1),
+    // main clock is 49.152MHz which is
+    // 48000 * 32 * 2 * 4 * 4
+    // so every 4 cycles of this is 1 cycle of mclk
+    // every 4 cycles of that we shift the audio data,
+    // every 32 cycles we flip l/r and each time we do
+    // L and R take new audio data
 
-        .rd_clk      (clk_12_288_mhz),
-        .rd_data     (sound_clk_74a)
-    );
-
-    // every 4 cycles of clk_12_288_mhz we shift
-    // every 32 cycles of that we reload and switch L/R
-
-    logic [6:0] counter;
-
+    // count 0-1023 for one complete cycle,
+    // bit 9 is L/R
+    // bit 1 is mclk
+    logic [9:0] counter;
     logic [31:0] shifter;
 
-    always @(posedge clk_12_288_mhz) begin
-        counter <= counter + 7'd1;
+    always @(posedge clk_49_152mhz) begin
+        counter <= counter + 10'd1;
 
-        if( counter[1:0] == 2'b00) begin
-            shifter <= {shifter[30:0], 1'b0};
+        if( counter[3:0] == 4'b1111) begin
+            shifter <= {shifter[30:0], shifter[31]};
         end
 
-        if(counter == '0) begin
-            shifter    <= {1'b0, sound_clk_74a, 15'b0};
-            audio.lrck <= ~audio.lrck;
+        if(counter[9:0] == '1) begin
+            shifter    <= {1'b0, sound, 15'b0};
         end
     end
 
     always_comb begin
-        audio.mclk = clk_12_288_mhz;
+        audio.lrck = counter[9];
+        audio.mclk = counter[1];
         audio.dac  = shifter[31];
     end
 
