@@ -243,7 +243,7 @@ module jailbreak_core(
      always_comb begin
         video.de   = ~(video_vblank || video_hblank);
         video.skip = video.de && !ce_pix;
-        video.rgb  = video.de ? {video_r, 4'b0, video_g, 4'b0, video_b, 4'b0} : 24'b0;
+        video.rgb  = video.de ? {video_r,    4'b0, video_g,    4'b0, video_b,    4'b0 } : 24'b0;
      end
 
     // main clock is 49.152MHz which is

@@ -251,7 +251,7 @@ module user_top (
         host_savestate_start_query.tie_off();
         host_savestate_load_query.tie_off();
         host_notify_cartridge.tie_off();
-        host_notify_display_mode.tie_off();
+        //host_notify_display_mode.tie_off();
         core_status = bridge_pkg::host_request_status_result_default(
             pll_core_locked,
             reset_n,
@@ -272,6 +272,20 @@ module user_top (
         .core_ready_to_run
     );
 
+    video_if video_raw(
+        .rgb_clock      (video.rgb_clock),
+        .rgb_clock_90   (video.rgb_clock_90)
+    );
+
+    host_display_mode#(
+        .supports_grayscale        (`SUPPORTS_GRAYSCALE)
+    ) hdm (
+        .clk                       (clk_74a),
+        .host_notify_display_mode,
+        .video_in                  (video_raw),
+        .video_out                 (video)
+    );
+
     jailbreak_core jb_core (
         .clk_74a,
 
@@ -290,7 +304,7 @@ module user_top (
         .host_dataslot_request_write,
         .core_dataslot_read,
 
-        .video,
+        .video                (video_raw),
         .audio,
 
         .controller_key       (controller[1].key)
