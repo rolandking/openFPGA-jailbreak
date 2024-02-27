@@ -9,13 +9,6 @@ set_global_assignment -name QIP_FILE ../../pocket-base/loader/loader.qip
 set_global_assignment -name QIP_FILE ../../pocket-base/cdc_fifo/cdc_fifo.qip
 set_global_assignment -name QIP_FILE ../../pocket-base/utils/utils.qip
 
-
-set_global_assignment -name QIP_FILE rtl/ram_rom/jailbreak_ram_rom.qip
-set_global_assignment -name QIP_FILE rtl/custom/jailbreak_custom.qip
-set_global_assignment -name QIP_FILE rtl/sound/jailbreak_sound.qip
-set_global_assignment -name VERILOG_FILE rtl/jtframe_frac_cen.v
-set_global_assignment -name SYSTEMVERILOG_FILE rtl/Jailbreak.sv
-
 set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_pkg.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_core.sv
 set_global_assignment -name SYSTEMVERILOG_FILE core/jailbreak_hs.sv
